@@ -1,0 +1,25 @@
+{
+  "name": "portfolio",
+  "version": "1.0.0",
+  "description": "An interesting way to manage my portfolio",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test src/test/*.test.js",
+    "start": "node src/core/main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zenmark29/portfolio.git"
+  },
+  "keywords": [],
+  "author": "Robert Mills",
+  "license": "MIT",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/zenmark29/portfolio/issues"
+  },
+  "homepage": "https://github.com/zenmark29/portfolio#readme",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0"
+  }
+}

@@ -1,0 +1,36 @@
+# Project Standards
+- **Style**: Strictly Object-Oriented JavaScript.
+- **Architecture**: Core logic and Tests are siblings within the `src/` directory.
+- **Testing**: Every object requires a unit test. Mock all external calls to maintain high code coverage.
+- **Imports**: Use relative paths (e.g., `../core/BaseObject.js`).
+- **Logging**: Precise and descriptive, but not verbose. No "hello world" or "here" logs.
+- **Tone**: Technical, direct, and domain-specific. Avoid software engineering metaphors in non-technical discussions.
+
+## Tech Stack & Decisions
+- **Runtime**: Node.js
+- **Database**: `better-sqlite3`
+- **Reasoning**: We use `better-sqlite3` because it is **synchronous**. Do not use asynchronous patterns, Promises, or callbacks for database operations.
+- **State Management**: Objects should manage their own internal state; keep database interactions encapsulated within Manager classes.
+
+## Project Structure
+- All source code lives in `src/`.
+- `src/core/`: Contains all class definitions and logic.
+- `src/test/`: Contains all unit tests.
+- **Sibling Relationship**: `core` and `test` are siblings.
+- **Relative Imports**: Tests must import core objects using `../core/[FileName].js`.
+
+## Example Layout
+.
+├── .cursorrules
+├── AGENTS.md
+├── package.json
+└── src/
+    ├── core/
+    └── test/
+
+# Project: portfolio
+## Application Type: Local PWA
+- **Deployment**: This is a Progressive Web App (PWA) designed to run **locally** on a Mac.
+- **Data Persistence**: Uses a local `better-sqlite3` file-based database.
+- **Networking**: No external API calls or cloud syncing. All logic is local.
+- **Service Worker**: Use a standard Service Worker for offline capability and local asset caching.
