@@ -5,11 +5,13 @@ import MarketData from './MarketData.js';
 
 class Portfolio extends BaseObject {
     /**
+     * @param {number} portfolioId 
      * @param {DatabaseManager} dbManager 
      * @param {MarketData} marketData 
      */
-    constructor(dbManager = new DatabaseManager(), marketData = new MarketData()) {
+    constructor(portfolioId = 1, dbManager = new DatabaseManager(), marketData = new MarketData()) {
         super();
+        this.portfolioId = portfolioId;
         this.dbManager = dbManager;
         this.marketData = marketData;
         /** @type {Investment[]} */
@@ -23,10 +25,10 @@ class Portfolio extends BaseObject {
 
 
     /**
-     * Loads investments and latest prices from the database.
+     * Loads investments and latest prices from the database for this specific portfolio.
      */
     loadInvestments() {
-        const rows = this.dbManager.db.prepare('SELECT ticker, shares, target_percentage FROM investments').all();
+        const rows = this.dbManager.db.prepare('SELECT ticker, shares, target_percentage FROM investments WHERE portfolio_id = ?').all(this.portfolioId);
         this.investments = rows.map(r => new Investment(r.ticker, r.shares, r.target_percentage));
         
         const hasCash = this.investments.some(inv => inv.ticker === 'CASH');
@@ -44,21 +46,21 @@ class Portfolio extends BaseObject {
     deleteInvestment(ticker) {
         if (ticker === 'CASH') return; // Protected structural asset
         this.investments = this.investments.filter(inv => inv.ticker !== ticker);
-        this.dbManager.db.prepare('DELETE FROM investments WHERE ticker = ?').run(ticker);
-        this.dbManager.db.prepare('DELETE FROM prices WHERE ticker = ?').run(ticker);
+        this.dbManager.db.prepare('DELETE FROM investments WHERE portfolio_id = ? AND ticker = ?').run(this.portfolioId, ticker);
+        // Note: we don't delete from prices since multiple portfolios may share the price.
     }
 
     /**
-     * Saves the current investments to the database.
+     * Saves the current investments to the database explicitly for this portfolio.
      */
     saveInvestments() {
         const insert = this.dbManager.db.prepare(
-            'INSERT INTO investments (ticker, shares, target_percentage) VALUES (?, ?, ?) ON CONFLICT(ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage'
+            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage) VALUES (?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage'
         );
         
         const transaction = this.dbManager.db.transaction((investments) => {
             for (const inv of investments) {
-                insert.run(inv.ticker, inv.shares, inv.targetPercentage);
+                insert.run(this.portfolioId, inv.ticker, inv.shares, inv.targetPercentage);
             }
         });
         
@@ -75,7 +77,7 @@ class Portfolio extends BaseObject {
         );
 
         for (const inv of this.investments) {
-            if (inv.ticker === 'CASH') continue;
+            if (inv.ticker === 'CASH' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) continue;
             
             try {
                 this.log(`Fetching price for ${inv.ticker} on ${date}`);
@@ -94,7 +96,7 @@ class Portfolio extends BaseObject {
      * Helper to get the most recent price from the DB for a ticker
      */
     _getLatestPrice(ticker) {
-        if (ticker === 'CASH') return 1.0;
+        if (ticker === 'CASH' || (ticker.length === 5 && ticker.endsWith('XX'))) return 1.0;
         
         const row = this.dbManager.db.prepare(
             'SELECT price FROM prices WHERE ticker = ? ORDER BY date DESC LIMIT 1'

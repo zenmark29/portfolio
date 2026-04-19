@@ -5,7 +5,7 @@ import Portfolio from '../core/Portfolio.js';
 import Investment from '../core/Investment.js';
 
 test('Portfolio target percentage validation', () => {
-    const portfolio = new Portfolio(new DatabaseManager(':memory:'), null);
+    const portfolio = new Portfolio(1, new DatabaseManager(':memory:'), null);
     
     // Sum = 1.0 (Valid)
     portfolio.setInvestments([
@@ -25,7 +25,7 @@ test('Portfolio target percentage validation', () => {
 test('Portfolio status calculation', () => {
     // Setup in-memory db
     const dbm = new DatabaseManager(':memory:');
-    const portfolio = new Portfolio(dbm, null);
+    const portfolio = new Portfolio(1, dbm, null);
     
     // Set investments
     portfolio.setInvestments([
@@ -81,7 +81,7 @@ test('Portfolio status calculation', () => {
 
 test('Portfolio load and save investments', () => {
     const dbm = new DatabaseManager(':memory:');
-    const portfolio = new Portfolio(dbm, null);
+    const portfolio = new Portfolio(1, dbm, null);
     
     portfolio.setInvestments([
         new Investment('AAPL', 10, 0.5),
@@ -92,7 +92,7 @@ test('Portfolio load and save investments', () => {
     portfolio.saveInvestments();
     
     // Validate by creating new portfolio reading from same DB ref
-    const portfolio2 = new Portfolio(dbm, null);
+    const portfolio2 = new Portfolio(1, dbm, null);
     portfolio2.loadInvestments();
     
     assert.strictEqual(portfolio2.investments.length, 3);
@@ -119,7 +119,7 @@ test('Portfolio update daily prices with Mocks', async () => {
         }
     };
     
-    const portfolio = new Portfolio(dbm, mockMarketData);
+    const portfolio = new Portfolio(1, dbm, mockMarketData);
     portfolio.setInvestments([
         new Investment('AAPL', 10, 0.5),
         new Investment('ERROR', 5, 0.5) // coverage for the catch block

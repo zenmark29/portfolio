@@ -16,10 +16,26 @@
     <main class="container">
         <header class="app-header">
             <h1>Portfolio <span>Manager</span></h1>
-            <button id="updatePricesBtn" class="btn btn-secondary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.15l5.59-4.8"/></svg>
-                Sync EOD Prices
-            </button>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <select id="portfolioSelect" class="grid-input" style="width: 220px; padding: 0.5rem; background: rgba(15,23,42,0.8); border: 1px solid var(--border-color);"></select>
+                <div style="position: relative;">
+                    <button id="btnManagePortfolios" class="btn btn-secondary">Manage ⚙️</button>
+                    <div id="manageMenu" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 0.5rem; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; width: 280px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(12px);">
+                        <h4 style="margin-bottom: 0.5rem;">New Portfolio</h4>
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                            <input type="text" id="newPortfolioName" placeholder="Name" style="padding: 0.4rem; height: 35px;">
+                            <button id="btnAddPortfolio" class="btn btn-primary" style="margin: 0; padding: 0 1rem; height: 35px;">Add</button>
+                        </div>
+                        <h4 style="margin-bottom: 0.5rem;">Manage Existing</h4>
+                        <ul id="managePortfoliosList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
+                        </ul>
+                    </div>
+                </div>
+                <button id="updatePricesBtn" class="btn btn-secondary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.15l5.59-4.8"/></svg>
+                    Sync Prices
+                </button>
+            </div>
         </header>
 
         <section class="hero-stats">
