@@ -21,7 +21,9 @@
   },
   "homepage": "https://github.com/zenmark29/portfolio#readme",
   "dependencies": {
-    "better-sqlite3": "^12.8.0"
+    "@polygon.io/client-js": "^7.3.3",
+    "better-sqlite3": "^12.8.0",
+    "express": "^4.19.2"
   },
   "devDependencies": {
     "c8": "^11.0.0"

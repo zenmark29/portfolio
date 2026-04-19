@@ -13,15 +13,23 @@ test('DatabaseManager Unit Tests', (t) => {
         assert.strictEqual(manager.className, 'DatabaseManager');
     });
 
-    t.test('should initialize the assets table on creation', () => {
+    t.test('should initialize the investments and prices tables on creation', () => {
         // Query the sqlite_master table to verify schema application
         const stmt = manager.db.prepare(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='assets'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='investments'"
         );
         const table = stmt.get();
 
-        assert.ok(table, 'Assets table should exist');
-        assert.strictEqual(table.name, 'assets');
+        assert.ok(table, 'Investments table should exist');
+        assert.strictEqual(table.name, 'investments');
+
+        const stmtPrices = manager.db.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='prices'"
+        );
+        const tablePrices = stmtPrices.get();
+
+        assert.ok(tablePrices, 'Prices table should exist');
+        assert.strictEqual(tablePrices.name, 'prices');
     });
 
     t.test('should log initialization precisely', () => {

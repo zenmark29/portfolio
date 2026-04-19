@@ -17,13 +17,20 @@ class DatabaseManager extends BaseObject {
     }
 
     _initializeSchema() {
-        // Example: Initializing the portfolio structure
         const schema = `
-            CREATE TABLE IF NOT EXISTS assets (
+            CREATE TABLE IF NOT EXISTS investments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ticker TEXT UNIQUE NOT NULL,
-                name TEXT,
-                asset_type TEXT
+                shares REAL NOT NULL DEFAULT 0,
+                target_percentage REAL NOT NULL DEFAULT 0
+            );
+            
+            CREATE TABLE IF NOT EXISTS prices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                date TEXT NOT NULL,
+                price REAL NOT NULL,
+                UNIQUE(ticker, date)
             );
         `;
         this.db.exec(schema);
