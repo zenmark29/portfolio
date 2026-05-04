@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
+    // DOM Elements - App
     const totalValueEl = document.getElementById('totalValue');
     const actualPercentageSumEl = document.getElementById('actualPercentageSum');
     const investmentsListEl = document.getElementById('investmentsList');
@@ -68,10 +68,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `BUY ${formatCurrency(inv.rebalanceAmount)}` 
                 : `SELL ${formatCurrency(Math.abs(inv.rebalanceAmount))}`;
 
+            tr.className = inv.ticker === 'CASH' ? 'cash-row' : '';
             tr.innerHTML = `
-                <td class="ticker-cell">${inv.ticker}</td>
+                <td class="ticker-cell">${inv.ticker} ${inv.ticker === 'CASH' ? '💰' : ''}</td>
                 <td>
-                    <input type="number" class="grid-input shares-input" data-ticker="${inv.ticker}" data-field="shares" value="${inv.shares}" step="any" min="0">
+                    <input type="number" class="grid-input shares-input" 
+                        data-ticker="${inv.ticker}" 
+                        data-field="shares" 
+                        value="${inv.shares}" 
+                        step="any" min="0"
+                        title="${inv.ticker === 'CASH' ? 'Total Dollar Amount' : 'Number of Shares'}">
                 </td>
                 <td>${formatCurrency(inv.price)}</td>
                 <td>${formatCurrency(inv.value)}</td>
@@ -86,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-size: 0.8em; opacity: 0.8">Diff: ${formatPercent(inv.differencePercentage)}</div>
                 </td>
                 <td>
-                    ${inv.ticker !== 'CASH' ? `<button class="btn-delete" data-ticker="${inv.ticker}">✕</button>` : ''}
+                    ${inv.ticker !== 'CASH' ? `<button class="btn-delete" data-ticker="${inv.ticker}">✕</button>` : '<span style="opacity: 0.3; cursor: default;" title="System Asset">🔒</span>'}
                 </td>
             `;
             investmentsListEl.appendChild(tr);
@@ -230,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     const result = await res.json();
                     if (result.success) refreshPortfoliosUI(result.data);
-                    else showError(result.error || 'Failed to rename (does this name already exist?).');
+                    else showError(result.error || 'Failed to rename.');
                 } catch(err){ showError('Failed to rename portfolio.'); }
             }
         }
@@ -247,9 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch(err){ showError('Failed to delete portfolio.'); }
         }
     });
-
-    // Boot
-    fetchPortfolios();
 
     // Handle Form Submit
     addInvestmentForm.addEventListener('submit', async (e) => {
@@ -351,4 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
+    fetchPortfolios();
 });

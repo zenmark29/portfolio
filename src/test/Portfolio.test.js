@@ -135,3 +135,25 @@ test('Portfolio update daily prices with Mocks', async () => {
     const errPrice = portfolio._getLatestPrice('ERROR');
     assert.strictEqual(errPrice, 0); // Default if not found
 });
+
+test('Portfolio deletion and protection', () => {
+    const dbm = new DatabaseManager(':memory:');
+    const portfolio = new Portfolio(1, dbm, null);
+    
+    portfolio.setInvestments([
+        new Investment('AAPL', 10, 0.5),
+        new Investment('CASH', 100, 0.5)
+    ]);
+    portfolio.saveInvestments();
+
+    // Try deleting CASH (should be ignored)
+    portfolio.deleteInvestment('CASH');
+    assert.strictEqual(portfolio.investments.find(i => i.ticker === 'CASH').shares, 100);
+
+    // Delete AAPL
+    portfolio.deleteInvestment('AAPL');
+    assert.strictEqual(portfolio.investments.find(i => i.ticker === 'AAPL'), undefined);
+    
+    const row = dbm.db.prepare('SELECT count(*) as count FROM investments WHERE ticker = ?').get('AAPL');
+    assert.strictEqual(row.count, 0);
+});

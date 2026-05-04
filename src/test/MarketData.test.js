@@ -29,6 +29,28 @@ test('MarketData logic and mocking', async () => {
 
     const prevDay = MarketData.getPreviousBusinessDay();
     assert.match(prevDay, /^\d{4}-\d{2}-\d{2}$/);
+
+    // Test specific date logic for getPreviousBusinessDay
+    const originalDate = global.Date;
     
+    // Mock Monday -> should return Friday (-3 days)
+    global.Date = class extends originalDate {
+        constructor() { super('2026-05-04T12:00:00'); } // Monday
+        getDay() { return 1; }
+        getDate() { return 4; }
+        setDate(d) { assert.strictEqual(d, 1); } // 4 - 3 = 1 (Friday)
+    };
+    MarketData.getPreviousBusinessDay();
+
+    // Mock Sunday -> should return Friday (-2 days)
+    global.Date = class extends originalDate {
+        constructor() { super('2026-05-03T12:00:00'); } // Sunday
+        getDay() { return 0; }
+        getDate() { return 3; }
+        setDate(d) { assert.strictEqual(d, 1); } // 3 - 2 = 1 (Friday)
+    };
+    MarketData.getPreviousBusinessDay();
+    
+    global.Date = originalDate;
     process.env.POLY_KEY = originalKey;
 });

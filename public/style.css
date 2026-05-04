@@ -205,6 +205,18 @@ tbody tr:hover {
 .diff-positive { color: var(--positive); }
 .diff-negative { color: var(--negative); font-weight: 600;}
 
+.cash-row {
+    background-color: rgba(16, 185, 129, 0.04) !important;
+}
+
+.cash-row:hover {
+    background-color: rgba(16, 185, 129, 0.08) !important;
+}
+
+.cash-row .ticker-cell {
+    color: var(--positive);
+}
+
 /* Forms */
 .form-group {
     margin-bottom: 1.25rem;
@@ -311,7 +323,7 @@ input:focus {
 
 /* Inline Editing Grid Inputs */
 .grid-input {
-    width: 90px;
+    width: 100px;
     background: transparent;
     border: 1px solid transparent;
     color: var(--text-primary);
@@ -332,6 +344,10 @@ input:focus {
     background: rgba(15,23,42,0.8); 
     outline: none; 
     box-shadow: 0 0 0 2px rgba(59,130,246,0.2); 
+}
+
+.shares-input {
+    width: 140px;
 }
 
 .target-input { 

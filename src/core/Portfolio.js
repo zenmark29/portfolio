@@ -28,7 +28,7 @@ class Portfolio extends BaseObject {
      * Loads investments and latest prices from the database for this specific portfolio.
      */
     loadInvestments() {
-        const rows = this.dbManager.db.prepare('SELECT ticker, shares, target_percentage FROM investments WHERE portfolio_id = ?').all(this.portfolioId);
+        const rows = this.dbManager.db.prepare('SELECT ticker, shares, target_percentage FROM investments WHERE portfolio_id = ? ORDER BY ticker ASC').all(this.portfolioId);
         this.investments = rows.map(r => new Investment(r.ticker, r.shares, r.target_percentage));
         
         const hasCash = this.investments.some(inv => inv.ticker === 'CASH');

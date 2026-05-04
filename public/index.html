@@ -13,7 +13,7 @@
 <body>
     <div class="app-background"></div>
     
-    <main class="container">
+    <main class="container" id="mainAppContent">
         <header class="app-header">
             <h1>Portfolio <span>Manager</span></h1>
             <div style="display: flex; gap: 1rem; align-items: center;">
@@ -27,7 +27,7 @@
                             <button id="btnAddPortfolio" class="btn btn-primary" style="margin: 0; padding: 0 1rem; height: 35px;">Add</button>
                         </div>
                         <h4 style="margin-bottom: 0.5rem;">Manage Existing</h4>
-                        <ul id="managePortfoliosList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
+                        <ul id="managePortfoliosList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
                         </ul>
                     </div>
                 </div>
@@ -61,7 +61,7 @@
                         <thead>
                             <tr>
                                 <th>Ticker</th>
-                                <th>Shares</th>
+                                <th>Shares / Amount ($)</th>
                                 <th>Price</th>
                                 <th>Value</th>
                                 <th>Alloc. (Target/Actual)</th>

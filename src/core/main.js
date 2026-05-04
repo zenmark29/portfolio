@@ -1,6 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import path from 'path';
+
 import Portfolio from './Portfolio.js';
 import Investment from './Investment.js';
 import DatabaseManager from './DatabaseManager.js';
@@ -12,22 +13,21 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Initialize the global dependencies
+// Initialize global dependencies
 const dbManager = new DatabaseManager();
 const marketData = new MarketData();
 
 app.use(express.json());
-// Serve the frontend UI
 app.use(express.static(path.join(__dirname, '../../public')));
 
-// Helper to dynamically instantiate the active portfolio context mapping API parameters
+// Helper to dynamically instantiate the active portfolio context
 const getPortfolio = (id) => {
     const portfolio = new Portfolio(parseInt(id), dbManager, marketData);
     portfolio.loadInvestments();
     return portfolio;
 };
 
-// --- PORTFOLIOS (OVERARCHING STRUCTURE) API ROUTES --- //
+// --- PORTFOLIOS API ROUTES --- //
 
 app.get('/api/portfolios', (req, res) => {
     try {
@@ -102,19 +102,18 @@ app.post('/api/portfolios/:id/investments', (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
         const { ticker, shares, targetPercentage } = req.body;
-        
+
         if (!ticker || shares === undefined || targetPercentage === undefined) {
              return res.status(400).json({ success: false, error: 'Ticker, shares, and targetPercentage are required' });
         }
-        
-        // We will append to current investments, or replace if existing
+
         const currentInvestments = portfolio.investments.filter(i => i.ticker !== ticker);
         const newInvestment = new Investment(ticker, parseFloat(shares), parseFloat(targetPercentage));
         currentInvestments.push(newInvestment);
-        
+
         portfolio.setInvestments(currentInvestments);
         portfolio.saveInvestments();
-        
+
         const status = portfolio.getPortfolioStatus();
         res.json({ success: true, data: status });
 

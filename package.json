@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test src/test/*.test.js",
     "start": "node src/core/main.js",
+    "debug": "node --inspect src/core/main.js",
     "coverage": "c8 npm test"
   },
   "repository": {
