@@ -53,6 +53,25 @@ class DatabaseManager extends BaseObject {
                 price REAL NOT NULL,
                 UNIQUE(ticker, date)
             );
+
+            CREATE TABLE IF NOT EXISTS portfolio_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                portfolio_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                total_value REAL NOT NULL,
+                UNIQUE(portfolio_id, date),
+                FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS portfolio_history_items (
+                history_id INTEGER NOT NULL,
+                ticker TEXT NOT NULL,
+                shares REAL NOT NULL,
+                price REAL NOT NULL,
+                actual_percentage REAL NOT NULL,
+                target_percentage REAL NOT NULL,
+                FOREIGN KEY (history_id) REFERENCES portfolio_history(id) ON DELETE CASCADE
+            );
         `;
         this.db.exec(schema);
         this.log("Schema verified/initialized (V2).");

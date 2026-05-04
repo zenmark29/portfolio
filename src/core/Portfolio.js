@@ -75,7 +75,6 @@ class Portfolio extends BaseObject {
         const insertPrice = this.dbManager.db.prepare(
             'INSERT OR IGNORE INTO prices (ticker, date, price) VALUES (?, ?, ?)'
         );
-
         for (const inv of this.investments) {
             if (inv.ticker === 'CASH' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) continue;
             
@@ -89,6 +88,51 @@ class Portfolio extends BaseObject {
             } catch (error) {
                 this.log(`Failed to update price for ${inv.ticker}: ${error.message}`);
             }
+        }
+
+        // After all prices are updated, take a snapshot of the final status
+        this.takeSnapshot(date);
+    }
+
+    /**
+     * Records a historical snapshot of the portfolio state.
+     * @param {string} date - The date for the snapshot (YYYY-MM-DD)
+     */
+    takeSnapshot(date) {
+        const status = this.getPortfolioStatus();
+        
+        const deleteHistory = this.dbManager.db.prepare('DELETE FROM portfolio_history WHERE portfolio_id = ? AND date = ?');
+        const insertHistory = this.dbManager.db.prepare('INSERT INTO portfolio_history (portfolio_id, date, total_value) VALUES (?, ?, ?)');
+        const insertItem = this.dbManager.db.prepare(`
+            INSERT INTO portfolio_history_items 
+            (history_id, ticker, shares, price, actual_percentage, target_percentage) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        `);
+
+        const transaction = this.dbManager.db.transaction(() => {
+            // Overwrite logic: clear existing for this date
+            deleteHistory.run(this.portfolioId, date);
+            
+            const info = insertHistory.run(this.portfolioId, date, status.totalValue);
+            const historyId = info.lastInsertRowid;
+
+            for (const detail of status.details) {
+                insertItem.run(
+                    historyId,
+                    detail.ticker,
+                    detail.shares,
+                    detail.price,
+                    detail.actualPercentage,
+                    detail.targetPercentage
+                );
+            }
+        });
+
+        try {
+            transaction();
+            this.log(`Portfolio snapshot recorded for ${date}`);
+        } catch (error) {
+            this.handleError('takeSnapshot', error);
         }
     }
 

@@ -157,3 +157,47 @@ test('Portfolio deletion and protection', () => {
     const row = dbm.db.prepare('SELECT count(*) as count FROM investments WHERE ticker = ?').get('AAPL');
     assert.strictEqual(row.count, 0);
 });
+
+test('Portfolio snapshotting and history', async () => {
+    const dbm = new DatabaseManager(':memory:');
+    
+    const mockMarketData = {
+        getEODPrice: async () => 200
+    };
+    
+    const portfolio = new Portfolio(1, dbm, mockMarketData);
+    portfolio.setInvestments([
+        new Investment('AAPL', 10, 0.5),
+        new Investment('MSFT', 10, 0.5)
+    ]);
+    portfolio.saveInvestments();
+
+    const date = '2023-01-01';
+    
+    // Insert prices for status calculation to work
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('AAPL', date, 200);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('MSFT', date, 200);
+
+    // Manual snapshot
+    portfolio.takeSnapshot(date);
+    
+    const history = dbm.db.prepare('SELECT * FROM portfolio_history WHERE portfolio_id = 1 AND date = ?').get(date);
+    assert.ok(history);
+    assert.strictEqual(history.total_value, 4000); // (10*200) + (10*200)
+
+    const items = dbm.db.prepare('SELECT * FROM portfolio_history_items WHERE history_id = ?').all(history.id);
+    assert.strictEqual(items.length, 2);
+    assert.strictEqual(items.find(i => i.ticker === 'AAPL').price, 200);
+
+    // Overwrite test
+    dbm.db.prepare("UPDATE investments SET shares = 20 WHERE ticker = 'AAPL'").run();
+    portfolio.loadInvestments();
+    portfolio.takeSnapshot(date); // Same date
+
+    const newHistory = dbm.db.prepare('SELECT * FROM portfolio_history WHERE portfolio_id = 1 AND date = ?').get(date);
+    assert.strictEqual(newHistory.total_value, 6000); // (20*200) + (10*200)
+    
+    // Ensure only one record exists
+    const count = dbm.db.prepare('SELECT count(*) as count FROM portfolio_history WHERE portfolio_id = 1 AND date = ?').get(date);
+    assert.strictEqual(count.count, 1);
+});

@@ -128,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectEl.addEventListener('change', (e) => {
         currentPortfolioId = e.target.value;
         fetchPortfolio();
+        fetchHistory(true);
     });
 
     const refreshPortfoliosUI = (portfolios) => {
@@ -172,6 +173,150 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         fetchPortfolio();
+        fetchHistory(true); // Force fetch data in background
+    };
+
+    // --- CHARTING LOGIC ---
+    let portfolioChart = null;
+    let isChartVisible = false;
+    const btnToggleChart = document.getElementById('btnToggleChart');
+    const performancePanel = document.getElementById('performancePanel');
+
+    btnToggleChart.addEventListener('click', () => {
+        isChartVisible = !isChartVisible;
+        performancePanel.style.display = isChartVisible ? 'block' : 'none';
+        btnToggleChart.classList.toggle('btn-active', isChartVisible);
+        if (isChartVisible) fetchHistory();
+    });
+
+    const fetchHistory = async (force = false) => {
+        if (!currentPortfolioId || (!isChartVisible && !force)) return;
+        try {
+            const res = await fetch(`/api/portfolios/${currentPortfolioId}/history`);
+            const result = await res.json();
+            if (result.success) {
+                if (result.data.length > 0) {
+                    renderHistoryChart(result.data);
+                } else if (portfolioChart) {
+                    portfolioChart.destroy();
+                    portfolioChart = null;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch history:', err);
+        }
+    };
+
+    const renderHistoryChart = (historyData) => {
+        const ctx = document.getElementById('portfolioChart').getContext('2d');
+        
+        const labels = historyData.map(d => d.date);
+        const totalValues = historyData.map(d => d.totalValue);
+        
+        // Find the absolute smallest holding value to set as the Y-axis floor
+        let minHoldingValue = Number.MAX_VALUE;
+        historyData.forEach(d => {
+            d.holdings.forEach(h => {
+                const val = h.shares * h.price;
+                if (val > 0 && val < minHoldingValue) {
+                    minHoldingValue = val;
+                }
+            });
+        });
+        if (minHoldingValue === Number.MAX_VALUE) minHoldingValue = 0;
+
+        const datasets = [];
+
+        // Add individual holdings as independent lines
+        const tickers = [...new Set(historyData.flatMap(d => d.holdings.map(h => h.ticker)))].sort();
+        tickers.forEach((ticker, index) => {
+            const data = historyData.map(d => {
+                const holding = d.holdings.find(h => h.ticker === ticker);
+                return holding ? (holding.shares * holding.price) : 0;
+            });
+            
+            const hue = (index * 137.5) % 360;
+            datasets.push({
+                label: ticker,
+                data: data,
+                borderColor: `hsla(${hue}, 70%, 50%, 0.8)`,
+                backgroundColor: `hsla(${hue}, 70%, 50%, 0.8)`,
+                borderWidth: 2,
+                fill: false,
+                pointRadius: 3,
+                tension: 0.1
+            });
+        });
+
+        // Add Total Portfolio Value line
+        datasets.push({
+            label: 'Total Portfolio Value',
+            data: totalValues,
+            borderColor: '#f8fafc', // Distinct white/light color
+            backgroundColor: '#f8fafc',
+            borderWidth: 4,
+            borderDash: [5, 5], // Dashed line to stand out
+            fill: false,
+            pointRadius: 4,
+            tension: 0.1,
+            order: -1 // Draw on top
+        });
+
+        if (portfolioChart) {
+            portfolioChart.destroy();
+        }
+
+        portfolioChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        min: minHoldingValue,
+                        beginAtZero: false,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            callback: (value) => '$' + value.toLocaleString(),
+                            color: '#94a3b8'
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#f8fafc', padding: 20, boxWidth: 12 }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#94a3b8',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            label: (context) => {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     };
 
     const fetchPortfolios = async () => {
@@ -303,6 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (result.success) {
                 renderPortfolio(result.data);
+                fetchHistory(); // Refresh chart after sync
             } else {
                 showError(result.error);
             }

@@ -20,6 +20,27 @@ const marketData = new MarketData();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../../public')));
 
+app.get('/api/portfolios/:id/history', (req, res) => {
+    try {
+        const portfolioId = parseInt(req.params.id);
+        const history = dbManager.db.prepare('SELECT id, date, total_value FROM portfolio_history WHERE portfolio_id = ? ORDER BY date ASC').all(portfolioId);
+        
+        const detailedHistory = history.map(h => {
+            const items = dbManager.db.prepare('SELECT ticker, shares, price, actual_percentage, target_percentage FROM portfolio_history_items WHERE history_id = ?').all(h.id);
+            return {
+                date: h.date,
+                totalValue: h.total_value,
+                holdings: items
+            };
+        });
+        
+        res.json({ success: true, data: detailedHistory });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+
 // Helper to dynamically instantiate the active portfolio context
 const getPortfolio = (id) => {
     const portfolio = new Portfolio(parseInt(id), dbManager, marketData);
