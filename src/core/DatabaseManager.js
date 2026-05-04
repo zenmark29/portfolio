@@ -18,13 +18,12 @@ class DatabaseManager extends BaseObject {
     }
 
     _initializeSchema() {
-        const hasPortfolios = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='portfolios'").get();
-
-        if (!hasPortfolios) {
-            this.log('Applying Multi-Portfolio Migration Pipeline...');
-            this._runMigration();
-        } else {
-            this._runV2Schema();
+        this._runV2Schema();
+        
+        // Ensure at least one default portfolio exists for fresh databases
+        const count = this.db.prepare('SELECT count(*) as count FROM portfolios').get();
+        if (count.count === 0) {
+            this.db.prepare("INSERT INTO portfolios (name) VALUES ('Default Portfolio')").run();
         }
     }
 
@@ -76,23 +75,5 @@ class DatabaseManager extends BaseObject {
         this.db.exec(schema);
         this.log("Schema verified/initialized (V2).");
     }
-
-    _runMigration() {
-        const hasInvestments = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='investments'").get();
-        if (!hasInvestments) {
-            this._runV2Schema();
-            this.db.prepare("INSERT INTO portfolios (name) VALUES ('Default Portfolio')").run();
-            return;
-        }
-
-        this.db.exec("ALTER TABLE investments RENAME TO investments_old");
-        this._runV2Schema();
-        this.db.prepare("INSERT INTO portfolios (name) VALUES ('Default Portfolio')").run();
-        this.db.exec("INSERT INTO investments (portfolio_id, ticker, shares, target_percentage) SELECT 1, ticker, shares, target_percentage FROM investments_old");
-        this.db.exec("DROP TABLE investments_old");
-
-        this.log('Multi-portfolio migration completed successfully.');
-    }
 }
-
 export default DatabaseManager;
