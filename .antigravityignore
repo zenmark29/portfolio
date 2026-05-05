@@ -1,0 +1,18 @@
+# Dependency folders
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+out/
+build/
+
+# Database & Local Data (Very important for token saving)
+*.db
+*.sqlite
+*.csv
+
+# IDE and System files
+.antigravity/
+.vscode/
+.DS_Store
