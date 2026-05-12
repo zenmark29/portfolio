@@ -141,3 +141,5 @@ vite.config.ts.timestamp-*
 # SQLite Databases
 *.db
 *.db-journal
+/downloads
+.DS_Store
