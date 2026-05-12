@@ -24,7 +24,7 @@ app.get('/api/portfolios/:id/history', (req, res) => {
     try {
         const portfolioId = parseInt(req.params.id);
         const history = dbManager.db.prepare('SELECT id, date, total_value FROM portfolio_history WHERE portfolio_id = ? ORDER BY date ASC').all(portfolioId);
-        
+
         const detailedHistory = history.map(h => {
             const items = dbManager.db.prepare('SELECT ticker, shares, price, actual_percentage, target_percentage FROM portfolio_history_items WHERE history_id = ?').all(h.id);
             return {
@@ -33,7 +33,7 @@ app.get('/api/portfolios/:id/history', (req, res) => {
                 holdings: items
             };
         });
-        
+
         res.json({ success: true, data: detailedHistory });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -128,11 +128,15 @@ app.post('/api/portfolios/:id/investments', (req, res) => {
              return res.status(400).json({ success: false, error: 'Ticker, shares, and targetPercentage are required' });
         }
 
-        const currentInvestments = portfolio.investments.filter(i => i.ticker !== ticker);
         const newInvestment = new Investment(ticker, parseFloat(shares), parseFloat(targetPercentage));
-        currentInvestments.push(newInvestment);
+        const existingIndex = portfolio.investments.findIndex(i => i.ticker === ticker);
 
-        portfolio.setInvestments(currentInvestments);
+        if (existingIndex >= 0) {
+            portfolio.investments[existingIndex] = newInvestment;
+        } else {
+            portfolio.investments.push(newInvestment);
+        }
+
         portfolio.saveInvestments();
 
         const status = portfolio.getPortfolioStatus();

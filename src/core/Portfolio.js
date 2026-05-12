@@ -5,9 +5,9 @@ import MarketData from './MarketData.js';
 
 class Portfolio extends BaseObject {
     /**
-     * @param {number} portfolioId 
-     * @param {DatabaseManager} dbManager 
-     * @param {MarketData} marketData 
+     * @param {number} portfolioId
+     * @param {DatabaseManager} dbManager
+     * @param {MarketData} marketData
      */
     constructor(portfolioId = 1, dbManager = new DatabaseManager(), marketData = new MarketData()) {
         super();
@@ -28,9 +28,9 @@ class Portfolio extends BaseObject {
      * Loads investments and latest prices from the database for this specific portfolio.
      */
     loadInvestments() {
-        const rows = this.dbManager.db.prepare('SELECT ticker, shares, target_percentage FROM investments WHERE portfolio_id = ? ORDER BY ticker ASC').all(this.portfolioId);
+        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
         this.investments = rows.map(r => new Investment(r.ticker, r.shares, r.target_percentage));
-        
+
         const hasCash = this.investments.some(inv => inv.ticker === 'CASH');
         if (!hasCash) {
             const cashInv = new Investment('CASH', 0, 0);
@@ -41,7 +41,7 @@ class Portfolio extends BaseObject {
 
     /**
      * Delete an investment explicitly from the portfolio
-     * @param {string} ticker 
+     * @param {string} ticker
      */
     deleteInvestment(ticker) {
         if (ticker === 'CASH') return; // Protected structural asset
@@ -57,13 +57,13 @@ class Portfolio extends BaseObject {
         const insert = this.dbManager.db.prepare(
             'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage) VALUES (?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage'
         );
-        
+
         const transaction = this.dbManager.db.transaction((investments) => {
             for (const inv of investments) {
                 insert.run(this.portfolioId, inv.ticker, inv.shares, inv.targetPercentage);
             }
         });
-        
+
         transaction(this.investments);
     }
 
@@ -77,7 +77,7 @@ class Portfolio extends BaseObject {
         );
         for (const inv of this.investments) {
             if (inv.ticker === 'CASH' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) continue;
-            
+
             try {
                 this.log(`Fetching price for ${inv.ticker} on ${date}`);
                 const price = await this.marketData.getEODPrice(inv.ticker, date);
@@ -100,19 +100,19 @@ class Portfolio extends BaseObject {
      */
     takeSnapshot(date) {
         const status = this.getPortfolioStatus();
-        
+
         const deleteHistory = this.dbManager.db.prepare('DELETE FROM portfolio_history WHERE portfolio_id = ? AND date = ?');
         const insertHistory = this.dbManager.db.prepare('INSERT INTO portfolio_history (portfolio_id, date, total_value) VALUES (?, ?, ?)');
         const insertItem = this.dbManager.db.prepare(`
-            INSERT INTO portfolio_history_items 
-            (history_id, ticker, shares, price, actual_percentage, target_percentage) 
+            INSERT INTO portfolio_history_items
+            (history_id, ticker, shares, price, actual_percentage, target_percentage)
             VALUES (?, ?, ?, ?, ?, ?)
         `);
 
         const transaction = this.dbManager.db.transaction(() => {
             // Overwrite logic: clear existing for this date
             deleteHistory.run(this.portfolioId, date);
-            
+
             const info = insertHistory.run(this.portfolioId, date, status.totalValue);
             const historyId = info.lastInsertRowid;
 
@@ -141,7 +141,7 @@ class Portfolio extends BaseObject {
      */
     _getLatestPrice(ticker) {
         if (ticker === 'CASH' || (ticker.length === 5 && ticker.endsWith('XX'))) return 1.0;
-        
+
         const row = this.dbManager.db.prepare(
             'SELECT price FROM prices WHERE ticker = ? ORDER BY date DESC LIMIT 1'
         ).get(ticker);
@@ -184,7 +184,7 @@ class Portfolio extends BaseObject {
 
         // Sum of actual percentages (should be 1.0 unless portfolio is empty)
         const actualPercentageSum = details.reduce((acc, d) => acc + d.actualPercentage, 0);
-        
+
         // Sum of targets
         const targetPercentageSum = this.investments.reduce((acc, inv) => acc + inv.targetPercentage, 0);
         const isTargetValid = this.investments.length === 0 || Math.abs(targetPercentageSum - 1.0) <= 0.0001;
