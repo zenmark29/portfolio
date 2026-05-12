@@ -47,6 +47,12 @@ class Portfolio extends BaseObject {
         if (ticker === 'CASH') return; // Protected structural asset
         this.investments = this.investments.filter(inv => inv.ticker !== ticker);
         this.dbManager.db.prepare('DELETE FROM investments WHERE portfolio_id = ? AND ticker = ?').run(this.portfolioId, ticker);
+        // Also delete from history items for this portfolio and ticker
+        this.dbManager.db.prepare(`
+            DELETE FROM portfolio_history_items
+            WHERE history_id IN (SELECT id FROM portfolio_history WHERE portfolio_id = ?)
+            AND ticker = ?
+        `).run(this.portfolioId, ticker);
         // Note: we don't delete from prices since multiple portfolios may share the price.
     }
 
@@ -65,6 +71,75 @@ class Portfolio extends BaseObject {
         });
 
         transaction(this.investments);
+    }
+
+    /**
+     * Saves the provided prices for the portfolio at the specified date.
+     * @param {Record<string, number>} priceMap
+     * @param {string} date
+     */
+    savePrices(priceMap, date) {
+        if (!date) return;
+
+        const insertPrice = this.dbManager.db.prepare(
+            'INSERT OR REPLACE INTO prices (ticker, date, price) VALUES (?, ?, ?)'
+        );
+
+        const transaction = this.dbManager.db.transaction((entries) => {
+            for (const [ticker, price] of entries) {
+                if (ticker === 'CASH' || price === undefined || Number.isNaN(price)) continue;
+                insertPrice.run(ticker, date, price);
+            }
+        });
+
+        transaction(Object.entries(priceMap));
+    }
+
+    /**
+     * Imports portfolio holdings from parsed CSV data and records a snapshot.
+     * @param {Array<{ticker:string,shares:number,value:number,price:number}>} holdings
+     * @param {string|null} generatedAt
+     */
+    importHoldings(holdings, generatedAt = null) {
+        const existingTargetMap = new Map(this.investments.map(inv => [inv.ticker, inv.targetPercentage]));
+
+        const newInvestments = holdings.map(h => {
+            const ticker = h.ticker.toUpperCase();
+            const rawShares = h.shares;
+            const shares = ticker === 'CASH'
+                ? (Number.isFinite(rawShares) ? rawShares : (Number.isFinite(h.value) ? h.value : 0))
+                : (Number.isFinite(rawShares) ? rawShares : 0);
+            const targetPercentage = existingTargetMap.has(ticker) ? existingTargetMap.get(ticker) : 0;
+            return new Investment(ticker, shares, targetPercentage);
+        });
+
+        this.setInvestments(newInvestments);
+        this.saveInvestments();
+
+        const priceMap = {};
+        for (const holding of holdings) {
+            const ticker = holding.ticker.toUpperCase();
+            if (ticker === 'CASH') continue;
+            const price = Number(holding.price);
+            if (!Number.isNaN(price)) {
+                priceMap[ticker] = price;
+            }
+        }
+
+        const snapshotDate = Portfolio._normalizeDateString(generatedAt) || MarketData.getPreviousBusinessDay();
+        this.savePrices(priceMap, snapshotDate);
+        this.takeSnapshot(snapshotDate);
+    }
+
+    static _normalizeDateString(value) {
+        if (!value) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            return value;
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return null;
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }
 
     /**

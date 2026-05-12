@@ -147,6 +147,23 @@ app.post('/api/portfolios/:id/investments', (req, res) => {
     }
 });
 
+app.post('/api/portfolios/:id/import', (req, res) => {
+    try {
+        const portfolio = getPortfolio(req.params.id);
+        const { holdings, generatedAt } = req.body;
+
+        if (!Array.isArray(holdings) || holdings.length === 0) {
+            return res.status(400).json({ success: false, error: 'Holdings array is required for import.' });
+        }
+
+        portfolio.importHoldings(holdings, generatedAt || null);
+        const status = portfolio.getPortfolioStatus();
+        res.json({ success: true, data: status });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
 app.delete('/api/portfolios/:id/investments/:ticker', (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);

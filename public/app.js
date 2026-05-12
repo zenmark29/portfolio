@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const investmentsListEl = document.getElementById('investmentsList');
     const addInvestmentForm = document.getElementById('addInvestmentForm');
     const updatePricesBtn = document.getElementById('updatePricesBtn');
+    const importFileInput = document.getElementById('portfolioImportFile');
+    const importPortfolioBtn = document.getElementById('btnImportPortfolio');
     const addBtn = document.getElementById('addBtn');
     const errorBanner = document.getElementById('errorBanner');
 
@@ -34,15 +36,156 @@ document.addEventListener('DOMContentLoaded', () => {
         errorBanner.textContent = '';
     };
 
+    const parseCsvLine = (line) => {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                    current += '"';
+                    i += 1;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                values.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+
+        values.push(current);
+        return values;
+    };
+
+    const formatPortfolioDate = (dateInput) => {
+        const date = dateInput ? new Date(dateInput) : null;
+        if (!date || Number.isNaN(date.getTime())) return null;
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const parsePortfolioDownloadCsv = (csvText) => {
+        const normalized = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const rows = normalized.split('\n');
+        const headerIndex = rows.findIndex(row => row.startsWith('Symbol,Last Price $'));
+
+        if (headerIndex === -1) {
+            throw new Error('Unable to locate the portfolio holdings header in the CSV.');
+        }
+
+        const header = parseCsvLine(rows[headerIndex]);
+        const symbolIndex = header.indexOf('Symbol');
+        const lastPriceIndex = header.indexOf('Last Price $');
+        const quantityIndex = header.indexOf('Quantity');
+        const valueIndex = header.indexOf('Value $');
+
+        if ([symbolIndex, lastPriceIndex, quantityIndex, valueIndex].some(index => index === -1)) {
+            throw new Error('CSV header is missing required columns.');
+        }
+
+        const holdings = [];
+
+        for (let i = headerIndex + 1; i < rows.length; i++) {
+            const row = rows[i].trim();
+            if (!row) continue;
+            if (row.startsWith('TOTAL')) break;
+
+            const values = parseCsvLine(row);
+            const ticker = values[symbolIndex]?.trim();
+            if (!ticker) continue;
+
+            const rawPrice = values[lastPriceIndex]?.trim();
+            const rawShares = values[quantityIndex]?.trim();
+            const rawValue = values[valueIndex]?.trim();
+
+            const price = rawPrice ? parseFloat(rawPrice.replace(/,/g, '')) : 0;
+            let shares = rawShares ? parseFloat(rawShares.replace(/,/g, '')) : NaN;
+            const value = rawValue ? parseFloat(rawValue.replace(/,/g, '')) : 0;
+
+            if (ticker === 'CASH') {
+                shares = Number.isNaN(shares) ? value : shares;
+            } else {
+                shares = Number.isNaN(shares) ? 0 : shares;
+            }
+
+            holdings.push({
+                ticker,
+                shares,
+                price: Number.isNaN(price) ? 0 : price,
+                value: Number.isNaN(value) ? 0 : value
+            });
+        }
+
+        const generatedAtMatch = normalized.match(/Generated at (.+)$/m);
+        const generatedAt = generatedAtMatch ? formatPortfolioDate(generatedAtMatch[1]) : null;
+
+        return { holdings, generatedAt };
+    };
+
+    const importPortfolioFromCsv = async (file) => {
+        const text = await file.text();
+        const parsed = parsePortfolioDownloadCsv(text);
+        if (!parsed.holdings.length) {
+            throw new Error('The CSV did not contain any portfolio holdings.');
+        }
+
+        const res = await fetch(`/api/portfolios/${currentPortfolioId}/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(parsed)
+        });
+
+        const result = await res.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to import portfolio CSV.');
+        }
+
+        return result.data;
+    };
+
+    const handlePortfolioImport = async () => {
+        if (!currentPortfolioId) {
+            showError('Select a portfolio before importing a CSV.');
+            return;
+        }
+
+        const file = importFileInput.files?.[0];
+        if (!file) {
+            showError('Choose a CSV file to import.');
+            return;
+        }
+
+        importPortfolioBtn.disabled = true;
+        importPortfolioBtn.textContent = 'Importing...';
+
+        try {
+            const data = await importPortfolioFromCsv(file);
+            renderPortfolio(data);
+            fetchHistory(true);
+        } catch (err) {
+            showError(err.message || 'Failed to import portfolio CSV.');
+        } finally {
+            importPortfolioBtn.disabled = false;
+            importPortfolioBtn.textContent = 'Import CSV';
+        }
+    };
+
     // Render Data to UI
     const renderPortfolio = (data) => {
         // Update Hero Stats
         totalValueEl.textContent = formatCurrency(data.totalValue);
-        
+
         const sumColor = data.isTargetValid ? 'var(--positive)' : 'var(--negative)';
         actualPercentageSumEl.textContent = formatPercent(data.targetPercentageSum);
         actualPercentageSumEl.style.color = sumColor;
-        
+
         if (!data.isTargetValid && data.details.length > 0) {
             errorBanner.textContent = 'Warning: Expected sum of 100% but targets sum to ' + formatPercent(data.targetPercentageSum) + '.';
             errorBanner.style.display = 'block';
@@ -60,22 +203,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Inject Rows
         data.details.forEach(inv => {
             const tr = document.createElement('tr');
-            
+
             // Rebalance Action formatting
             const isBuy = inv.rebalanceAmount >= 0;
             const diffClass = isBuy ? 'diff-positive' : 'diff-negative';
-            const actionText = isBuy 
-                ? `BUY ${formatCurrency(inv.rebalanceAmount)}` 
+            const actionText = isBuy
+                ? `BUY ${formatCurrency(inv.rebalanceAmount)}`
                 : `SELL ${formatCurrency(Math.abs(inv.rebalanceAmount))}`;
 
             tr.className = inv.ticker === 'CASH' ? 'cash-row' : '';
             tr.innerHTML = `
                 <td class="ticker-cell">${inv.ticker} ${inv.ticker === 'CASH' ? '💰' : ''}</td>
                 <td>
-                    <input type="number" class="grid-input shares-input" 
-                        data-ticker="${inv.ticker}" 
-                        data-field="shares" 
-                        value="${inv.shares}" 
+                    <input type="number" class="grid-input shares-input"
+                        data-ticker="${inv.ticker}"
+                        data-field="shares"
+                        value="${inv.shares}"
                         step="any" min="0"
                         title="${inv.ticker === 'CASH' ? 'Total Dollar Amount' : 'Number of Shares'}">
                 </td>
@@ -114,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- MULTI PORTFOLIO LOGIC ---
-    
+
     btnManagePortfolios.addEventListener('click', () => {
         manageMenu.style.display = manageMenu.style.display === 'none' ? 'block' : 'none';
     });
@@ -146,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const isCurrent = parseInt(currentPortfolioId) === p.id;
-            
+
             managePortfoliosList.innerHTML += `
                 <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 4px;">
                     <span style="${p.is_hidden ? 'text-decoration: line-through; opacity: 0.5;' : ''}">${p.name} ${isCurrent ? '(active)' : ''}</span>
@@ -163,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPortfolioId = portfolios[0].id;
             selectEl.innerHTML = `<option value="${currentPortfolioId}">${portfolios[0].name}</option>`;
         }
-        
+
         if (!currentPortfolioId && portfolios.length > 0) {
             currentPortfolioId = selectEl.options[0].value;
         } else if (selectEl.querySelector(`option[value="${currentPortfolioId}"]`)) {
@@ -209,10 +352,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderHistoryChart = (historyData) => {
         const ctx = document.getElementById('portfolioChart').getContext('2d');
-        
+
         const labels = historyData.map(d => d.date);
         const totalValues = historyData.map(d => d.totalValue);
-        
+
         // Find the absolute smallest holding value to set as the Y-axis floor
         let minHoldingValue = Number.MAX_VALUE;
         historyData.forEach(d => {
@@ -234,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const holding = d.holdings.find(h => h.ticker === ticker);
                 return holding ? (holding.shares * holding.price) : 0;
             });
-            
+
             const hue = (index * 137.5) % 360;
             datasets.push({
                 label: ticker,
@@ -357,7 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = tgt.dataset.id;
 
         if (tgt.classList.contains('btn-toggle-portfolio')) {
-            const is_hidden = tgt.dataset.hidden === '0'; // toggle it 
+            const is_hidden = tgt.dataset.hidden === '0'; // toggle it
             try {
                 const res = await fetch(`/api/portfolios/${id}/visibility`, {
                     method: 'PUT',
@@ -404,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         if (!currentPortfolioId) return;
         clearError();
-        
+
         const ticker = document.getElementById('ticker').value.toUpperCase();
         const shares = document.getElementById('shares').value;
         const targetPercentage = document.getElementById('targetPercentage').value;
@@ -419,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ ticker, shares, targetPercentage })
             });
             const result = await res.json();
-            
+
             if (result.success) {
                 renderPortfolio(result.data);
                 addInvestmentForm.reset();
@@ -445,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch(`/api/portfolios/${currentPortfolioId}/prices/update`, { method: 'POST' });
             const result = await res.json();
-            
+
             if (result.success) {
                 renderPortfolio(result.data);
                 fetchHistory(); // Refresh chart after sync
@@ -460,6 +603,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    importPortfolioBtn.addEventListener('click', async () => {
+        if (!currentPortfolioId) return;
+        clearError();
+        await handlePortfolioImport();
+    });
+
     // Editable Grid Handlers
     investmentsListEl.addEventListener('change', async (e) => {
         if (!currentPortfolioId) return;
@@ -468,7 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ticker = e.target.dataset.ticker;
             const shares = tr.querySelector('.shares-input').value;
             const targetPercentage = tr.querySelector('.target-input').value;
-            
+
             try {
                 const res = await fetch(`/api/portfolios/${currentPortfolioId}/investments`, {
                     method: 'POST',
@@ -489,7 +638,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('btn-delete')) {
             const ticker = e.target.dataset.ticker;
             if (!confirm(`Are you sure you want to delete ${ticker}?`)) return;
-            
+
             try {
                 const res = await fetch(`/api/portfolios/${currentPortfolioId}/investments/${ticker}`, { method: 'DELETE' });
                 const result = await res.json();
