@@ -1,3 +1,5 @@
+import logger from './logger.js';
+
 class BaseObject {
     constructor() {
         this.className = this.constructor.name;
@@ -8,8 +10,7 @@ class BaseObject {
      * @param {string} message
      */
     log(message) {
-        const timestamp = new Date().toISOString();
-        console.log(`[${timestamp}] ${this.className}: ${message}`);
+        logger.info(`${this.className}: ${message}`);
     }
 
     /**

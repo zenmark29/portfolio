@@ -25,7 +25,9 @@
     "@polygon.io/client-js": "^7.3.3",
     "better-sqlite3": "^12.8.0",
     "chart.js": "^4.5.1",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1"
   },
   "devDependencies": {
     "c8": "^11.0.0"

@@ -6,6 +6,7 @@ import Portfolio from './Portfolio.js';
 import Investment from './Investment.js';
 import DatabaseManager from './DatabaseManager.js';
 import MarketData from './MarketData.js';
+import logger from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -188,5 +189,5 @@ app.post('/api/portfolios/:id/prices/update', async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Portfolio Web UI running on http://localhost:${port}`);
+    logger.info(`Portfolio Web UI running on http://localhost:${port}`);
 });
