@@ -284,8 +284,9 @@ input:focus {
 }
 
 .btn-secondary {
-    padding: 0.6rem 1.25rem;
-    background: transparent;
+    padding: 0 1rem;
+    height: 35px;
+    background: rgba(15, 23, 42, 0.8);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
     font-size: 0.875rem;

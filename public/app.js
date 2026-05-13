@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             tr.className = inv.ticker === 'CASH' ? 'cash-row' : '';
             tr.innerHTML = `
-                <td class="ticker-cell">${inv.ticker} ${inv.ticker === 'CASH' ? '💰' : ''}</td>
+                <td class="ticker-cell">${inv.ticker}</td>
                 <td>
                     <input type="number" class="grid-input shares-input"
                         data-ticker="${inv.ticker}"
