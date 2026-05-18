@@ -386,3 +386,36 @@ test('Portfolio takeSnapshot catches database transaction failures', () => {
     );
     dbm.db.transaction = originalTransaction;
 });
+
+test('Portfolio ensureAssetNames fetches missing names and handles errors', async () => {
+    const dbm = new DatabaseManager(':memory:');
+    const mockMarketData = {
+        getAssetDetails: async (ticker) => {
+            if (ticker === 'AAPL') return 'Apple Inc.';
+            if (ticker === 'ERROR') return null; // API fails, returns null
+            return null;
+        }
+    };
+
+    const portfolio = new Portfolio(1, dbm, mockMarketData);
+    portfolio.setInvestments([
+        new Investment('AAPL', 10, 0.5, null),
+        new Investment('MSFT', 10, 0.5, 'Microsoft Corp.'), // Already has name
+        new Investment('CASH', 100, 0, null),
+        new Investment('FUNXX', 100, 0, null), // 5 char ending in XX
+        new Investment('ERROR', 5, 0, null)
+    ]);
+    portfolio.saveInvestments();
+
+    await portfolio.ensureAssetNames();
+
+    assert.strictEqual(portfolio.investments.find(i => i.ticker === 'AAPL').name, 'Apple Inc.');
+    assert.strictEqual(portfolio.investments.find(i => i.ticker === 'MSFT').name, 'Microsoft Corp.');
+    assert.strictEqual(portfolio.investments.find(i => i.ticker === 'CASH').name, 'Cash');
+    assert.strictEqual(portfolio.investments.find(i => i.ticker === 'FUNXX').name, 'Money Market Fund');
+    assert.strictEqual(portfolio.investments.find(i => i.ticker === 'ERROR').name, null); // Failed
+    
+    // Call again to hit the fetchCount > 0 condition if AAPL and ERROR both triggered it,
+    // though the loop continues immediately on CASH/FUNXX
+    // To properly hit fetchCount > 0 delay, we can just let it run. The test might take 1s because of the delay.
+});

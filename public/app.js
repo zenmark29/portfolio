@@ -213,7 +213,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             tr.className = inv.ticker === 'CASH' ? 'cash-row' : '';
             tr.innerHTML = `
-                <td class="ticker-cell">${inv.ticker}</td>
+                <td class="ticker-cell">
+                    <div style="font-weight: 600;">${inv.ticker}</div>
+                    ${inv.ticker !== 'CASH' && inv.name ? `<div style="font-size: 0.75rem; opacity: 0.7; font-weight: 400; margin-top: 4px; line-height: 1.2;">${inv.name}</div>` : ''}
+                </td>
                 <td>
                     <input type="number" class="grid-input shares-input"
                         data-ticker="${inv.ticker}"

@@ -110,9 +110,10 @@ app.delete('/api/portfolios/:id', (req, res) => {
 
 // --- REST API ROUTES FOR SPECIFIC PORTFOLIOS --- //
 
-app.get('/api/portfolios/:id/status', (req, res) => {
+app.get('/api/portfolios/:id/status', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
+        await portfolio.ensureAssetNames();
         const status = portfolio.getPortfolioStatus();
         res.json({ success: true, data: status });
     } catch (error) {
@@ -120,7 +121,7 @@ app.get('/api/portfolios/:id/status', (req, res) => {
     }
 });
 
-app.post('/api/portfolios/:id/investments', (req, res) => {
+app.post('/api/portfolios/:id/investments', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
         const { ticker, shares, targetPercentage } = req.body;
@@ -139,6 +140,7 @@ app.post('/api/portfolios/:id/investments', (req, res) => {
         }
 
         portfolio.saveInvestments();
+        await portfolio.ensureAssetNames();
 
         const status = portfolio.getPortfolioStatus();
         res.json({ success: true, data: status });
@@ -148,7 +150,7 @@ app.post('/api/portfolios/:id/investments', (req, res) => {
     }
 });
 
-app.post('/api/portfolios/:id/import', (req, res) => {
+app.post('/api/portfolios/:id/import', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
         const { holdings, generatedAt } = req.body;
@@ -158,6 +160,8 @@ app.post('/api/portfolios/:id/import', (req, res) => {
         }
 
         portfolio.importHoldings(holdings, generatedAt || null);
+        await portfolio.ensureAssetNames();
+        
         const status = portfolio.getPortfolioStatus();
         res.json({ success: true, data: status });
     } catch (error) {

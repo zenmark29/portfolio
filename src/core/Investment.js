@@ -5,12 +5,14 @@ class Investment extends BaseObject {
      * @param {string} ticker
      * @param {number} shares
      * @param {number} targetPercentage - e.g., 0.25 for 25%
+     * @param {string|null} name - The descriptive name of the asset
      */
-    constructor(ticker, shares = 0, targetPercentage = 0) {
+    constructor(ticker, shares = 0, targetPercentage = 0, name = null) {
         super();
         this.ticker = ticker;
         this.shares = shares;
         this.targetPercentage = targetPercentage;
+        this.name = name;
     }
 
     /**

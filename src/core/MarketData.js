@@ -48,6 +48,20 @@ class MarketData extends BaseObject {
         date.setDate(date.getDate() - daysToSubtract);
         return date.toISOString().split('T')[0];
     }
+    /**
+     * Fetches details for a given asset ticker (e.g., name).
+     * @param {string} ticker 
+     * @returns {Promise<string|null>} - The name of the asset, or null if not found.
+     */
+    async getAssetDetails(ticker) {
+        try {
+            const response = await this.rest.reference.tickerDetails(ticker);
+            return response.results.name || null;
+        } catch (error) {
+            this.log(`Failed to fetch details for ${ticker}: ${error.message}`);
+            return null;
+        }
+    }
 }
 
 export default MarketData;

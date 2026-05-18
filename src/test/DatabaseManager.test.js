@@ -45,4 +45,21 @@ test('DatabaseManager Unit Tests', (t) => {
             new DatabaseManager('/invalid/path/to/db.db');
         }, /ERROR in Database Connection/);
     });
+
+    t.test('should handle schema migration V3 errors gracefully', () => {
+        const dbm = new DatabaseManager(':memory:');
+        const originalPrepare = dbm.db.prepare;
+        
+        // Mock prepare to throw only when checking the investments table for 'name' column
+        dbm.db.prepare = (sql) => {
+            if (sql.includes("pragma_table_info('investments')")) {
+                throw new Error('Forced migration V3 error');
+            }
+            return originalPrepare.call(dbm.db, sql);
+        };
+        
+        assert.throws(() => {
+            dbm._runV3Schema();
+        }, /ERROR in Schema V3/);
+    });
 });

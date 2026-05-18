@@ -28,12 +28,12 @@ class Portfolio extends BaseObject {
      * Loads investments and latest prices from the database for this specific portfolio.
      */
     loadInvestments() {
-        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
-        this.investments = rows.map(r => new Investment(r.ticker, r.shares, r.target_percentage));
+        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
+        this.investments = rows.map(r => new Investment(r.ticker, r.shares, r.target_percentage, r.name));
 
         const hasCash = this.investments.some(inv => inv.ticker === 'CASH');
         if (!hasCash) {
-            const cashInv = new Investment('CASH', 0, 0);
+            const cashInv = new Investment('CASH', 0, 0, 'Cash');
             this.investments.unshift(cashInv);
             this.saveInvestments();
         }
@@ -61,12 +61,12 @@ class Portfolio extends BaseObject {
      */
     saveInvestments() {
         const insert = this.dbManager.db.prepare(
-            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage) VALUES (?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage'
+            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage, name) VALUES (?, ?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage, name=COALESCE(excluded.name, investments.name)'
         );
 
         const transaction = this.dbManager.db.transaction((investments) => {
             for (const inv of investments) {
-                insert.run(this.portfolioId, inv.ticker, inv.shares, inv.targetPercentage);
+                insert.run(this.portfolioId, inv.ticker, inv.shares, inv.targetPercentage, inv.name);
             }
         });
 
@@ -140,6 +140,41 @@ class Portfolio extends BaseObject {
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return null;
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    /**
+     * Checks if any investments are missing names and fetches them from Polygon API.
+     */
+    async ensureAssetNames() {
+        const updateName = this.dbManager.db.prepare('UPDATE investments SET name = ? WHERE portfolio_id = ? AND ticker = ?');
+        let fetchCount = 0;
+
+        for (const inv of this.investments) {
+            if (inv.ticker === 'CASH' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) {
+                if (!inv.name) {
+                    inv.name = inv.ticker === 'CASH' ? 'Cash' : 'Money Market Fund';
+                    updateName.run(inv.name, this.portfolioId, inv.ticker);
+                }
+                continue;
+            }
+
+            if (!inv.name) {
+                // To avoid hitting the 5/min limit too fast, add a delay if we fetch multiple
+                if (fetchCount > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+
+                this.log(`Fetching asset details for ${inv.ticker}`);
+                const name = await this.marketData.getAssetDetails(inv.ticker);
+                fetchCount++;
+
+                if (name) {
+                    inv.name = name;
+                    updateName.run(name, this.portfolioId, inv.ticker);
+                    this.log(`Stored name for ${inv.ticker}: ${name}`);
+                }
+            }
+        }
     }
 
     /**
@@ -247,6 +282,7 @@ class Portfolio extends BaseObject {
 
             return {
                 ticker: inv.ticker,
+                name: inv.name,
                 shares: inv.shares,
                 price: price,
                 value: value,

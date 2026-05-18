@@ -19,6 +19,7 @@ class DatabaseManager extends BaseObject {
 
     _initializeSchema() {
         this._runV2Schema();
+        this._runV3Schema();
         
         // Ensure at least one default portfolio exists for fresh databases
         const count = this.db.prepare('SELECT count(*) as count FROM portfolios').get();
@@ -39,6 +40,7 @@ class DatabaseManager extends BaseObject {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 portfolio_id INTEGER NOT NULL,
                 ticker TEXT NOT NULL,
+                name TEXT,
                 shares REAL NOT NULL DEFAULT 0,
                 target_percentage REAL NOT NULL DEFAULT 0,
                 UNIQUE(portfolio_id, ticker),
@@ -74,6 +76,17 @@ class DatabaseManager extends BaseObject {
         `;
         this.db.exec(schema);
         this.log("Schema verified/initialized (V2).");
+    }
+    _runV3Schema() {
+        try {
+            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='name'").get().count > 0;
+            if (!columnExists) {
+                this.db.exec('ALTER TABLE investments ADD COLUMN name TEXT');
+                this.log("Schema verified/initialized (V3 - added name column).");
+            }
+        } catch (e) {
+            this.handleError('Schema V3', e);
+        }
     }
 }
 export default DatabaseManager;

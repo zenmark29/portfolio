@@ -27,6 +27,24 @@ test('MarketData logic and mocking', async () => {
         await md.getEODPrice('ERROR', '2023-10-10');
     }, /Failed to fetch price for ERROR/);
 
+    // Test getAssetDetails
+    md.rest.reference = {
+        tickerDetails: mock.fn(async (ticker) => {
+            if (ticker === 'ERROR') throw new Error('Polygon timeout');
+            if (ticker === 'NONAME') return { results: {} };
+            return { results: { name: 'Apple Inc.' } };
+        })
+    };
+    
+    const name = await md.getAssetDetails('AAPL');
+    assert.strictEqual(name, 'Apple Inc.');
+    
+    const emptyName = await md.getAssetDetails('NONAME');
+    assert.strictEqual(emptyName, null);
+    
+    const errName = await md.getAssetDetails('ERROR');
+    assert.strictEqual(errName, null);
+
     const prevDay = MarketData.getPreviousBusinessDay();
     assert.match(prevDay, /^\d{4}-\d{2}-\d{2}$/);
 
