@@ -30,3 +30,10 @@ This project is a Progressive Web App (PWA) optimized for local execution. It pr
 
 ## Offline First
 The application must remain functional without an internet connection, relying entirely on the local SQLite database.
+
+# Testing & Coverage
+This project maintains strict code coverage standards to ensure reliability.
+- **100% Coverage Requirement**: All logic changes must be accompanied by corresponding unit tests. Statement, Branch, and Function coverage must remain at **100%**.
+- **Execution**: Always run `npm run coverage` after making logic modifications.
+- **Restoration**: If your changes cause coverage to drop below 100%, you must proactively identify the missing paths and write the necessary unit tests to restore complete coverage before finishing your task.
+- **Mocking**: Use `node:test` built-in mock functions to isolate database, filesystem, or external API calls where appropriate.
