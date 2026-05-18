@@ -50,9 +50,27 @@
         </section>
 
         <section class="charts-panel glass" id="performancePanel" style="display: none; margin-bottom: 2rem; padding: 2rem;">
-            <div class="panel-header" style="margin-bottom: 2rem;">
-                <h3>Portfolio Performance & Alignment</h3>
-                <p class="subtitle">Historical total value and asset growth tracked per price sync.</p>
+            <div class="panel-header" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h3>Portfolio Performance & Alignment</h3>
+                    <p class="subtitle">Historical total value and asset growth tracked per price sync.</p>
+                </div>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="chartViewSelect" style="color: var(--text-secondary); font-size: 0.9rem;">View Mode:</label>
+                        <select id="chartViewSelect" class="grid-input" style="padding: 0.3rem 0.5rem; background: rgba(15,23,42,0.8); border: 1px solid var(--border-color); color: #f8fafc; font-size: 0.9rem; min-width: 190px; width: auto;">
+                            <option value="absolute">Absolute Value ($)</option>
+                            <option value="percentage">Percentage Change (%)</option>
+                        </select>
+                    </div>
+                    <div id="chartScaleContainer" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="chartScaleSelect" style="color: var(--text-secondary); font-size: 0.9rem;">Scale:</label>
+                        <select id="chartScaleSelect" class="grid-input" style="padding: 0.3rem 0.5rem; background: rgba(15,23,42,0.8); border: 1px solid var(--border-color); color: #f8fafc; font-size: 0.9rem; min-width: 130px; width: auto;">
+                            <option value="linear">Linear</option>
+                            <option value="logarithmic">Logarithmic</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div style="height: 400px; position: relative;">
                 <canvas id="portfolioChart"></canvas>

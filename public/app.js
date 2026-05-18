@@ -322,8 +322,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CHARTING LOGIC ---
     let portfolioChart = null;
     let isChartVisible = false;
+    let chartScaleMode = 'linear';
+    let chartViewMode = 'absolute';
+    let currentHistoryData = [];
+
     const btnToggleChart = document.getElementById('btnToggleChart');
     const performancePanel = document.getElementById('performancePanel');
+    const chartViewSelect = document.getElementById('chartViewSelect');
+    const chartScaleSelect = document.getElementById('chartScaleSelect');
+    const chartScaleContainer = document.getElementById('chartScaleContainer');
+
+    if (chartViewSelect) {
+        chartViewSelect.addEventListener('change', (e) => {
+            chartViewMode = e.target.value;
+            if (chartViewMode === 'percentage') {
+                chartScaleContainer.style.display = 'none';
+            } else {
+                chartScaleContainer.style.display = 'flex';
+            }
+            if (currentHistoryData.length > 0) {
+                renderHistoryChart(currentHistoryData);
+            }
+        });
+    }
+
+    if (chartScaleSelect) {
+        chartScaleSelect.addEventListener('change', (e) => {
+            chartScaleMode = e.target.value;
+            if (currentHistoryData.length > 0) {
+                renderHistoryChart(currentHistoryData);
+            }
+        });
+    }
 
     btnToggleChart.addEventListener('click', () => {
         isChartVisible = !isChartVisible;
@@ -338,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/portfolios/${currentPortfolioId}/history`);
             const result = await res.json();
             if (result.success) {
+                currentHistoryData = result.data;
                 if (result.data.length > 0) {
                     renderHistoryChart(result.data);
                 } else if (portfolioChart) {
@@ -354,28 +385,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctx = document.getElementById('portfolioChart').getContext('2d');
 
         const labels = historyData.map(d => d.date);
-        const totalValues = historyData.map(d => d.totalValue);
+        
+        let baselineTotalValue = historyData[0]?.totalValue || 1;
+        const totalValues = historyData.map(d => {
+            if (chartViewMode === 'percentage') {
+                return baselineTotalValue > 0 ? ((d.totalValue - baselineTotalValue) / baselineTotalValue) * 100 : 0;
+            }
+            return d.totalValue;
+        });
 
         // Find the absolute smallest holding value to set as the Y-axis floor
         let minHoldingValue = Number.MAX_VALUE;
-        historyData.forEach(d => {
-            d.holdings.forEach(h => {
-                const val = h.shares * h.price;
-                if (val > 0 && val < minHoldingValue) {
-                    minHoldingValue = val;
-                }
+        if (chartViewMode === 'absolute') {
+            historyData.forEach(d => {
+                d.holdings.forEach(h => {
+                    const val = h.shares * h.price;
+                    if (val > 0 && val < minHoldingValue) {
+                        minHoldingValue = val;
+                    }
+                });
             });
-        });
-        if (minHoldingValue === Number.MAX_VALUE) minHoldingValue = 0;
+            if (minHoldingValue === Number.MAX_VALUE) minHoldingValue = 0;
+        }
 
         const datasets = [];
 
         // Add individual holdings as independent lines
         const tickers = [...new Set(historyData.flatMap(d => d.holdings.map(h => h.ticker)))].sort();
         tickers.forEach((ticker, index) => {
+            let baselineHoldingValue = null;
             const data = historyData.map(d => {
                 const holding = d.holdings.find(h => h.ticker === ticker);
-                return holding ? (holding.shares * holding.price) : 0;
+                const val = holding ? (holding.shares * holding.price) : 0;
+                
+                if (chartViewMode === 'percentage') {
+                    if (baselineHoldingValue === null && val > 0) {
+                        baselineHoldingValue = val; // First non-zero value is baseline
+                    }
+                    if (baselineHoldingValue) {
+                        return ((val - baselineHoldingValue) / baselineHoldingValue) * 100;
+                    }
+                    return null; // Don't plot before we own it in percentage mode
+                }
+                return val;
             });
 
             const hue = (index * 137.5) % 360;
@@ -409,6 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
             portfolioChart.destroy();
         }
 
+        const yAxisType = (chartViewMode === 'absolute' && chartScaleMode === 'logarithmic') ? 'logarithmic' : 'linear';
+
         portfolioChart = new Chart(ctx, {
             type: 'line',
             data: { labels, datasets },
@@ -421,11 +475,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 scales: {
                     y: {
-                        min: minHoldingValue,
+                        type: yAxisType,
+                        min: chartViewMode === 'absolute' ? (yAxisType === 'logarithmic' ? Math.max(0.01, minHoldingValue) : minHoldingValue) : undefined,
                         beginAtZero: false,
                         grid: { color: 'rgba(255, 255, 255, 0.05)' },
                         ticks: {
-                            callback: (value) => '$' + value.toLocaleString(),
+                            callback: (value) => {
+                                if (chartViewMode === 'percentage') {
+                                    return (value > 0 ? '+' : '') + value.toFixed(2) + '%';
+                                } else {
+                                    if (value >= 1000) {
+                                        return '$' + (value / 1000).toFixed(value % 1000 !== 0 ? 1 : 0) + 'k';
+                                    }
+                                    return '$' + value.toLocaleString();
+                                }
+                            },
                             color: '#94a3b8'
                         }
                     },
@@ -451,7 +515,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let label = context.dataset.label || '';
                                 if (label) label += ': ';
                                 if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                    if (chartViewMode === 'percentage') {
+                                        const val = context.parsed.y;
+                                        label += (val > 0 ? '+' : '') + val.toFixed(2) + '%';
+                                    } else {
+                                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                    }
                                 }
                                 return label;
                             }
