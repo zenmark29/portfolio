@@ -35,6 +35,7 @@
                 <input type="file" id="portfolioImportFile" accept=".csv" style="padding: 0.5rem; background: rgba(15,23,42,0.8); border: 1px solid var(--border-color); color: #f8fafc; height: 35px; min-width: 180px;" />
                 <button id="btnImportPortfolio" class="btn btn-secondary">Import CSV</button>
                 <button id="btnToggleChart" class="btn btn-secondary">Chart</button>
+                <button id="btnToggleCorrelation" class="btn btn-secondary">Heatmap</button>
             </div>
         </header>
 
@@ -74,6 +75,37 @@
             </div>
             <div style="height: 400px; position: relative;">
                 <canvas id="portfolioChart"></canvas>
+            </div>
+        </section>
+
+        <section class="charts-panel glass" id="correlationPanel" style="display: none; margin-bottom: 2rem; padding: 2rem;">
+            <div class="panel-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h3>Asset Correlation & Diversification</h3>
+                    <p class="subtitle">Measures daily return correlation. Low or negative values indicate high quality diversification.</p>
+                </div>
+                <div class="legend-container" style="display: flex; gap: 1rem; align-items: center; background: rgba(15, 23, 42, 0.4); padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; border: 1px solid var(--border-color); flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: rgba(239, 68, 68, 0.7); border: 1px solid rgba(239, 68, 68, 0.9);"></span>
+                        <span>High Corr (&gt;0.5)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color);"></span>
+                        <span>Uncorrelated (~0)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: rgba(99, 102, 241, 0.7); border: 1px solid rgba(99, 102, 241, 0.9);"></span>
+                        <span>Negative Corr (&lt;0)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="correlationContainer" class="correlation-scroll-wrapper" style="overflow-x: auto; width: 100%; padding: 0.5rem 0;">
+                <!-- Dynamic Matrix Table injected here -->
+            </div>
+
+            <div id="correlationDetails" style="margin-top: 1.5rem; padding: 1rem; border-radius: 0.5rem; background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color); font-size: 0.9rem; color: var(--text-secondary); text-align: center; min-height: 48px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
+                Hover over any cell in the matrix to analyze asset diversification.
             </div>
         </section>
 

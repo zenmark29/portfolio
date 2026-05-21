@@ -121,6 +121,16 @@ app.get('/api/portfolios/:id/status', async (req, res) => {
     }
 });
 
+app.get('/api/portfolios/:id/correlation', (req, res) => {
+    try {
+        const portfolio = getPortfolio(req.params.id);
+        const correlationData = portfolio.getCorrelationMatrix();
+        res.json({ success: true, data: correlationData });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.post('/api/portfolios/:id/investments', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);

@@ -387,3 +387,72 @@ input:focus {
     color: var(--negative); 
 }
 
+/* Correlation Heatmap Matrix Styles */
+.correlation-scroll-wrapper {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.correlation-matrix {
+    width: auto;
+    margin: 1.5rem auto;
+    border-collapse: separate;
+    border-spacing: 6px;
+    font-variant-numeric: tabular-nums;
+    font-family: inherit;
+}
+
+.correlation-matrix th {
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.5rem;
+}
+
+.correlation-matrix th.row-hdr {
+    text-align: right;
+    padding-right: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    min-width: 90px;
+    border-bottom: none;
+}
+
+.correlation-matrix th.col-hdr {
+    padding-bottom: 0.75rem;
+    min-width: 75px;
+    border-bottom: none;
+}
+
+.corr-cell {
+    width: 60px;
+    height: 60px;
+    text-align: center;
+    vertical-align: middle;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    position: relative;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.corr-cell:hover {
+    transform: scale(1.1);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    z-index: 10;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.corr-cell.active-hover {
+    filter: brightness(1.2);
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+

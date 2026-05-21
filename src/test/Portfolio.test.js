@@ -419,3 +419,63 @@ test('Portfolio ensureAssetNames fetches missing names and handles errors', asyn
     // though the loop continues immediately on CASH/FUNXX
     // To properly hit fetchCount > 0 delay, we can just let it run. The test might take 1s because of the delay.
 });
+
+test('Portfolio correlation matrix logic and calculations', () => {
+    const dbm = new DatabaseManager(':memory:');
+    const portfolio = new Portfolio(1, dbm, null);
+
+    // 1. calculateCorrelation on same ticker returns 1.0
+    assert.strictEqual(portfolio.calculateCorrelation('AAPL', 'AAPL'), 1.0);
+
+    // 2. Too few overlapping dates (less than 3) returns null
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('AAPL', '2023-01-01', 150);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('AAPL', '2023-01-02', 152);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('MSFT', '2023-01-01', 300);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('MSFT', '2023-01-02', 305);
+
+    assert.strictEqual(portfolio.calculateCorrelation('AAPL', 'MSFT'), null);
+
+    // 3. Zero variance return (constant price) returns null
+    dbm.db.prepare('DELETE FROM prices').run();
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('AAPL', '2023-01-01', 150);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('AAPL', '2023-01-02', 150);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('AAPL', '2023-01-03', 150);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('MSFT', '2023-01-01', 300);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('MSFT', '2023-01-02', 300);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('MSFT', '2023-01-03', 300);
+    // Since prices are constant, daily returns will be 0, yielding 0 variance.
+    assert.strictEqual(portfolio.calculateCorrelation('AAPL', 'MSFT'), null);
+
+    // Clear and do valid correlation test
+    dbm.db.prepare('DELETE FROM prices').run();
+
+    // Ticker A prices: 100, 110, 120 (returns: 10% gain, 9.09% gain)
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('A', '2023-01-01', 100);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('A', '2023-01-02', 110);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('A', '2023-01-03', 120);
+
+    // Ticker B prices: 200, 220, 240 (returns: 10% gain, 9.09% gain) -> perfect correlation 1.0
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('B', '2023-01-01', 200);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('B', '2023-01-02', 220);
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('B', '2023-01-03', 240);
+
+    const corr = portfolio.calculateCorrelation('A', 'B');
+    assert.ok(corr !== null);
+    assert.ok(Math.abs(corr - 1.0) < 0.0001);
+
+    // 4. Test getCorrelationMatrix filters correctly
+    portfolio.setInvestments([
+        new Investment('A', 10, 0.3),
+        new Investment('B', 10, 0.3),
+        new Investment('CASH', 100, 0.2),
+        new Investment('VUSXX', 500, 0.2) // MMF should be filtered
+    ]);
+
+    const result = portfolio.getCorrelationMatrix();
+    // CASH and MMF should be excluded from matrix tickers
+    assert.deepStrictEqual(result.tickers, ['A', 'B']);
+    assert.strictEqual(result.matrix.A.A, 1.0);
+    assert.strictEqual(result.matrix.B.B, 1.0);
+    assert.ok(Math.abs(result.matrix.A.B - 1.0) < 0.0001);
+    assert.ok(Math.abs(result.matrix.B.A - 1.0) < 0.0001);
+});

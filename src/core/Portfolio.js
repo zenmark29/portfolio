@@ -308,6 +308,118 @@ class Portfolio extends BaseObject {
             details
         };
     }
+
+    /**
+     * Calculates the Pearson correlation coefficient between two tickers' daily returns.
+     * @param {string} ticker1
+     * @param {string} ticker2
+     * @returns {number|null} Pearson correlation coefficient, or null if insufficient data/undefined.
+     */
+    calculateCorrelation(ticker1, ticker2) {
+        if (ticker1 === ticker2) return 1.0;
+
+        // Fetch prices from database sorted by date ascending
+        const prices1 = this.dbManager.db.prepare(
+            'SELECT date, price FROM prices WHERE ticker = ? ORDER BY date ASC'
+        ).all(ticker1);
+
+        const prices2 = this.dbManager.db.prepare(
+            'SELECT date, price FROM prices WHERE ticker = ? ORDER BY date ASC'
+        ).all(ticker2);
+
+        // Align dates: find intersection of dates
+        const priceMap2 = new Map(prices2.map(p => [p.date, p.price]));
+        const alignedPrices = [];
+
+        for (const p1 of prices1) {
+            if (priceMap2.has(p1.date)) {
+                alignedPrices.push({
+                    date: p1.date,
+                    price1: p1.price,
+                    price2: priceMap2.get(p1.date)
+                });
+            }
+        }
+
+        // We need at least 3 common dates to compute 2 daily returns (needed for standard deviation variance calculation)
+        if (alignedPrices.length < 3) {
+            return null;
+        }
+
+        // Calculate returns
+        const returns1 = [];
+        const returns2 = [];
+
+        for (let i = 1; i < alignedPrices.length; i++) {
+            const prev = alignedPrices[i - 1];
+            const curr = alignedPrices[i];
+            
+            // Calculate daily percentage returns
+            const r1 = (curr.price1 - prev.price1) / prev.price1;
+            const r2 = (curr.price2 - prev.price2) / prev.price2;
+
+            returns1.push(r1);
+            returns2.push(r2);
+        }
+
+        // Compute Pearson correlation coefficient
+        const mean1 = returns1.reduce((sum, val) => sum + val, 0) / returns1.length;
+        const mean2 = returns2.reduce((sum, val) => sum + val, 0) / returns2.length;
+
+        let covariance = 0;
+        let var1 = 0;
+        let var2 = 0;
+
+        for (let i = 0; i < returns1.length; i++) {
+            const diff1 = returns1[i] - mean1;
+            const diff2 = returns2[i] - mean2;
+
+            covariance += diff1 * diff2;
+            var1 += diff1 * diff1;
+            var2 += diff2 * diff2;
+        }
+
+        const stdDevProduct = Math.sqrt(var1 * var2);
+        if (stdDevProduct === 0) {
+            return null; // Undefined correlation (zero variance in returns)
+        }
+
+        return covariance / stdDevProduct;
+    }
+
+    /**
+     * Calculates the correlation matrix for all active correlatable tickers.
+     * Excludes CASH and money market funds (5-character tickers ending in XX).
+     * @returns {Object} { tickers: string[], matrix: Record<string, Record<string, number|null>> }
+     */
+    getCorrelationMatrix() {
+        const activeTickers = this.investments
+            .map(inv => inv.ticker)
+            .filter(ticker => ticker !== 'CASH' && !(ticker.length === 5 && ticker.endsWith('XX')));
+
+        const tickers = [...new Set(activeTickers)].sort();
+        const matrix = {};
+
+        for (const t of tickers) {
+            matrix[t] = {};
+        }
+
+        for (let i = 0; i < tickers.length; i++) {
+            const t1 = tickers[i];
+            matrix[t1][t1] = 1.0; // self-correlation is 1.0
+            
+            for (let j = i + 1; j < tickers.length; j++) {
+                const t2 = tickers[j];
+                const corr = this.calculateCorrelation(t1, t2);
+                
+                // Since correlation matrix is symmetric
+                matrix[t1][t2] = corr;
+                matrix[t2][t1] = corr;
+            }
+        }
+
+        return { tickers, matrix };
+    }
 }
 
 export default Portfolio;

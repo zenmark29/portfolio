@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await importPortfolioFromCsv(file);
             renderPortfolio(data);
             fetchHistory(true);
+            fetchCorrelation(true);
         } catch (err) {
             showError(err.message || 'Failed to import portfolio CSV.');
         } finally {
@@ -275,6 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPortfolioId = e.target.value;
         fetchPortfolio();
         fetchHistory(true);
+        fetchCorrelation(true);
     });
 
     const refreshPortfoliosUI = (portfolios) => {
@@ -320,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fetchPortfolio();
         fetchHistory(true); // Force fetch data in background
+        fetchCorrelation(true);
     };
 
     // --- CHARTING LOGIC ---
@@ -534,6 +537,176 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // --- CORRELATION HEATMAP LOGIC ---
+    let isCorrelationVisible = false;
+    const btnToggleCorrelation = document.getElementById('btnToggleCorrelation');
+    const correlationPanel = document.getElementById('correlationPanel');
+    const correlationContainer = document.getElementById('correlationContainer');
+    const correlationDetails = document.getElementById('correlationDetails');
+
+    if (btnToggleCorrelation) {
+        btnToggleCorrelation.addEventListener('click', () => {
+            isCorrelationVisible = !isCorrelationVisible;
+            correlationPanel.style.display = isCorrelationVisible ? 'block' : 'none';
+            btnToggleCorrelation.classList.toggle('btn-active', isCorrelationVisible);
+            if (isCorrelationVisible) fetchCorrelation();
+        });
+    }
+
+    const fetchCorrelation = async (force = false) => {
+        if (!currentPortfolioId || (!isCorrelationVisible && !force)) return;
+        try {
+            const res = await fetch(`/api/portfolios/${currentPortfolioId}/correlation`);
+            const result = await res.json();
+            if (result.success) {
+                renderCorrelationHeatmap(result.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch correlation:', err);
+        }
+    };
+
+    const getCorrCellStyle = (r) => {
+        if (r === null) {
+            return {
+                bg: 'rgba(255, 255, 255, 0.02)',
+                border: '1px dashed rgba(255, 255, 255, 0.1)',
+                color: 'rgba(255, 255, 255, 0.2)'
+            };
+        }
+        
+        // Diagonal cell (self-correlation)
+        if (Math.abs(r - 1.0) < 0.0001) {
+            return {
+                bg: 'rgba(255, 255, 255, 0.06)',
+                border: '2px solid rgba(255, 255, 255, 0.15)',
+                color: '#f8fafc'
+            };
+        }
+
+        const opacity = Math.min(0.85, Math.abs(r) * 0.85);
+
+        if (r > 0) {
+            // Warm coral red for positive correlation
+            return {
+                bg: `hsla(8, 80%, 48%, ${opacity})`,
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                color: opacity > 0.4 ? '#f8fafc' : '#cbd5e1'
+            };
+        } else {
+            // Cool indigo blue for negative correlation
+            return {
+                bg: `hsla(235, 80%, 55%, ${opacity})`,
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                color: opacity > 0.4 ? '#f8fafc' : '#cbd5e1'
+            };
+        }
+    };
+
+    const getCorrExplanation = (t1, t2, r) => {
+        if (t1 === t2) {
+            return `<strong>${t1}</strong> with itself: perfect correlation of <strong>1.00</strong>.`;
+        }
+        if (r === null) {
+            return `Insufficient historical data to compute correlation between <strong>${t1}</strong> and <strong>${t2}</strong> (requires at least 3 common price dates).`;
+        }
+        
+        const valStr = r.toFixed(2);
+        let desc = '';
+        
+        if (r > 0.7) {
+            desc = `<span style="color: #f87171;">Strong positive correlation</span>. They tend to move in tandem, providing <span style="color: #f87171; font-weight: 600;">low diversification</span>.`;
+        } else if (r > 0.3) {
+            desc = `<span style="color: #fb923c;">Moderate positive correlation</span>. Some diversification benefits, but they will often move together.`;
+        } else if (r > 0.1) {
+            desc = `<span style="color: #fbbf24;">Weak positive correlation</span>. Moderate diversification benefit.`;
+        } else if (r >= -0.1) {
+            desc = `<span style="color: #4ade80; font-weight: 600;">Uncorrelated (near 0)</span>. Independent movements. This is an <span style="color: #4ade80; font-weight: 600;">excellent diversification</span> benefit!`;
+        } else if (r >= -0.3) {
+            desc = `<span style="color: #60a5fa; font-weight: 600;">Weak negative correlation</span>. Tends to move in opposite directions, providing <span style="color: #60a5fa; font-weight: 600;">great diversification and hedging</span>.`;
+        } else {
+            desc = `<span style="color: #818cf8; font-weight: 600;">Strong negative correlation</span>. Moves in opposite directions, providing <span style="color: #818cf8; font-weight: 600;">outstanding hedging and risk reduction</span>!`;
+        }
+        
+        return `<strong>${t1}</strong> and <strong>${t2}</strong> return correlation is <strong>${valStr}</strong>: ${desc}`;
+    };
+
+    const renderCorrelationHeatmap = (data) => {
+        const { tickers, matrix } = data;
+
+        if (!correlationContainer || !correlationDetails) return;
+
+        if (!tickers || tickers.length < 2) {
+            correlationContainer.innerHTML = `
+                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1rem; opacity: 0.5;"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    <p style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">Insufficient Diversification Assets</p>
+                    <p style="font-size: 0.85rem; max-width: 400px; margin: 0 auto;">You need at least 2 non-cash assets in this portfolio to calculate return correlations and analyze diversification quality.</p>
+                </div>
+            `;
+            correlationDetails.innerHTML = "Add more tickers to visualize diversification quality.";
+            return;
+        }
+
+        // Build table
+        let html = '<table class="correlation-matrix">';
+        
+        // Header row
+        html += '<thead><tr><th></th>';
+        tickers.forEach(t => {
+            html += `<th class="col-hdr">${t}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        // Data rows
+        tickers.forEach(t1 => {
+            html += `<tr><th class="row-hdr">${t1}</th>`;
+            tickers.forEach(t2 => {
+                const r = matrix[t1][t2];
+                const style = getCorrCellStyle(r);
+                const valStr = r === null ? 'N/A' : r.toFixed(2);
+                
+                html += `
+                    <td class="corr-cell" 
+                        data-t1="${t1}" 
+                        data-t2="${t2}" 
+                        data-r="${r !== null ? r : ''}"
+                        style="background: ${style.bg}; border: ${style.border}; color: ${style.color};">
+                        ${valStr}
+                    </td>
+                `;
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        correlationContainer.innerHTML = html;
+
+        // Hover listeners for custom dynamic explanation box
+        const cells = correlationContainer.querySelectorAll('.corr-cell');
+        cells.forEach(cell => {
+            cell.addEventListener('mouseenter', () => {
+                const t1 = cell.dataset.t1;
+                const t2 = cell.dataset.t2;
+                const rRaw = cell.dataset.r;
+                const r = rRaw === '' ? null : parseFloat(rRaw);
+                correlationDetails.innerHTML = getCorrExplanation(t1, t2, r);
+                
+                // Highlight row/col header visually
+                cells.forEach(c => {
+                    if (c.dataset.t1 === t1 || c.dataset.t2 === t2) {
+                        c.classList.add('active-hover');
+                    }
+                });
+            });
+
+            cell.addEventListener('mouseleave', () => {
+                correlationDetails.innerHTML = 'Hover over any cell in the matrix to analyze asset diversification.';
+                cells.forEach(c => c.classList.remove('active-hover'));
+            });
+        });
+    };
+
     const fetchPortfolios = async () => {
         try {
             const res = await fetch('/api/portfolios');
@@ -638,6 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result.success) {
                 renderPortfolio(result.data);
                 addInvestmentForm.reset();
+                fetchCorrelation(true);
             } else {
                 showError(result.error);
             }
@@ -664,6 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result.success) {
                 renderPortfolio(result.data);
                 fetchHistory(); // Refresh chart after sync
+                fetchCorrelation(); // Refresh correlation heatmap
             } else {
                 showError(result.error);
             }
@@ -714,8 +889,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await fetch(`/api/portfolios/${currentPortfolioId}/investments/${ticker}`, { method: 'DELETE' });
                 const result = await res.json();
-                if (result.success) renderPortfolio(result.data);
-                else showError(result.error);
+                if (result.success) {
+                    renderPortfolio(result.data);
+                    fetchCorrelation(true);
+                } else showError(result.error);
             } catch (err) {
                 showError('Network error while deleting investment.');
             }
