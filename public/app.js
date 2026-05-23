@@ -201,47 +201,108 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear Table
         investmentsListEl.innerHTML = '';
 
-        // Inject Rows
+        // Inject Rows safely (avoid innerHTML with user-controlled data)
         data.details.forEach(inv => {
             const tr = document.createElement('tr');
+            if (inv.ticker === 'CASH') tr.classList.add('cash-row');
 
-            // Rebalance Action formatting
+            // Ticker cell
+            const tdTicker = document.createElement('td');
+            tdTicker.className = 'ticker-cell';
+            const tickerDiv = document.createElement('div');
+            tickerDiv.style.fontWeight = '600';
+            tickerDiv.textContent = inv.ticker;
+            tdTicker.appendChild(tickerDiv);
+
+            if (inv.ticker !== 'CASH' && inv.name) {
+                const nameDiv = document.createElement('div');
+                nameDiv.style.fontSize = '0.75rem';
+                nameDiv.style.opacity = '0.7';
+                nameDiv.style.fontWeight = '400';
+                nameDiv.style.marginTop = '4px';
+                nameDiv.style.lineHeight = '1.2';
+                nameDiv.textContent = inv.name;
+                tdTicker.appendChild(nameDiv);
+            }
+
+            // Shares input cell
+            const tdShares = document.createElement('td');
+            const sharesInput = document.createElement('input');
+            sharesInput.type = 'number';
+            sharesInput.className = 'grid-input shares-input';
+            sharesInput.setAttribute('data-ticker', inv.ticker);
+            sharesInput.setAttribute('data-field', 'shares');
+            sharesInput.value = String(inv.shares);
+            sharesInput.step = 'any';
+            sharesInput.min = '0';
+            sharesInput.title = inv.ticker === 'CASH' ? 'Total Dollar Amount' : 'Number of Shares';
+            tdShares.appendChild(sharesInput);
+
+            // Price cell
+            const tdPrice = document.createElement('td');
+            tdPrice.textContent = formatCurrency(inv.price);
+
+            // Value cell
+            const tdValue = document.createElement('td');
+            tdValue.textContent = formatCurrency(inv.value);
+
+            // Percent cell with target input
+            const tdPercent = document.createElement('td');
+            tdPercent.className = 'percent-cell';
+            const spanActual = document.createElement('span');
+            spanActual.textContent = formatPercent(inv.actualPercentage);
+            const spanTarget = document.createElement('span');
+            spanTarget.className = 'percent-target';
+            spanTarget.textContent = 'Target: ';
+            const targetInput = document.createElement('input');
+            targetInput.type = 'number';
+            targetInput.className = 'grid-input target-input';
+            targetInput.setAttribute('data-ticker', inv.ticker);
+            targetInput.setAttribute('data-field', 'targetPercentage');
+            targetInput.value = String(inv.targetPercentage);
+            targetInput.step = '0.01';
+            targetInput.min = '0';
+            targetInput.max = '1';
+            spanTarget.appendChild(targetInput);
+            tdPercent.appendChild(spanActual);
+            tdPercent.appendChild(spanTarget);
+
+            // Diff / action cell
+            const tdDiff = document.createElement('td');
             const isBuy = inv.rebalanceAmount >= 0;
-            const diffClass = isBuy ? 'diff-positive' : 'diff-negative';
-            const actionText = isBuy
-                ? `BUY ${formatCurrency(inv.rebalanceAmount)}`
-                : `SELL ${formatCurrency(Math.abs(inv.rebalanceAmount))}`;
+            tdDiff.className = isBuy ? 'diff-positive' : 'diff-negative';
+            tdDiff.textContent = isBuy ? `BUY ${formatCurrency(inv.rebalanceAmount)}` : `SELL ${formatCurrency(Math.abs(inv.rebalanceAmount))}`;
+            const smallDiff = document.createElement('div');
+            smallDiff.style.fontSize = '0.8em';
+            smallDiff.style.opacity = '0.8';
+            smallDiff.textContent = `Diff: ${formatPercent(inv.differencePercentage)}`;
+            tdDiff.appendChild(smallDiff);
 
-            tr.className = inv.ticker === 'CASH' ? 'cash-row' : '';
-            tr.innerHTML = `
-                <td class="ticker-cell">
-                    <div style="font-weight: 600;">${inv.ticker}</div>
-                    ${inv.ticker !== 'CASH' && inv.name ? `<div style="font-size: 0.75rem; opacity: 0.7; font-weight: 400; margin-top: 4px; line-height: 1.2;">${inv.name}</div>` : ''}
-                </td>
-                <td>
-                    <input type="number" class="grid-input shares-input"
-                        data-ticker="${inv.ticker}"
-                        data-field="shares"
-                        value="${inv.shares}"
-                        step="any" min="0"
-                        title="${inv.ticker === 'CASH' ? 'Total Dollar Amount' : 'Number of Shares'}">
-                </td>
-                <td>${formatCurrency(inv.price)}</td>
-                <td>${formatCurrency(inv.value)}</td>
-                <td class="percent-cell">
-                    <span>${formatPercent(inv.actualPercentage)}</span>
-                    <span class="percent-target">
-                        Target: <input type="number" class="grid-input target-input" data-ticker="${inv.ticker}" data-field="targetPercentage" value="${inv.targetPercentage}" step="0.01" min="0" max="1">
-                    </span>
-                </td>
-                <td class="${diffClass}">
-                    ${actionText}
-                    <div style="font-size: 0.8em; opacity: 0.8">Diff: ${formatPercent(inv.differencePercentage)}</div>
-                </td>
-                <td>
-                    ${inv.ticker !== 'CASH' ? `<button class="btn-delete" data-ticker="${inv.ticker}">✕</button>` : '<span style="opacity: 0.3; cursor: default;" title="System Asset">🔒</span>'}
-                </td>
-            `;
+            // Actions cell
+            const tdActions = document.createElement('td');
+            if (inv.ticker !== 'CASH') {
+                const delBtn = document.createElement('button');
+                delBtn.className = 'btn-delete';
+                delBtn.setAttribute('data-ticker', inv.ticker);
+                delBtn.textContent = '✕';
+                tdActions.appendChild(delBtn);
+            } else {
+                const spanLock = document.createElement('span');
+                spanLock.style.opacity = '0.3';
+                spanLock.style.cursor = 'default';
+                spanLock.title = 'System Asset';
+                spanLock.textContent = '🔒';
+                tdActions.appendChild(spanLock);
+            }
+
+            tr.appendChild(tdTicker);
+            tr.appendChild(tdShares);
+            tr.appendChild(tdPrice);
+            tr.appendChild(tdValue);
+            tr.appendChild(tdPercent);
+            tr.appendChild(tdDiff);
+            tr.appendChild(tdActions);
+
             investmentsListEl.appendChild(tr);
         });
     };
@@ -283,7 +344,6 @@ document.addEventListener('DOMContentLoaded', () => {
         selectEl.innerHTML = '';
         managePortfoliosList.innerHTML = '';
         let hasVisible = false;
-
         portfolios.forEach(p => {
             if (!p.is_hidden) {
                 hasVisible = true;
@@ -295,21 +355,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const isCurrent = parseInt(currentPortfolioId) === p.id;
 
-            managePortfoliosList.innerHTML += `
-                <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                    <span style="${p.is_hidden ? 'text-decoration: line-through; opacity: 0.5;' : ''}">${p.name} ${isCurrent ? '(active)' : ''}</span>
-                    <div style="display: flex; gap: 0.2rem;">
-                        <button class="btn-rename-portfolio" data-id="${p.id}" data-name="${p.name}" style="background: transparent; border: none; cursor: pointer; color: var(--text-secondary);" title="Rename">✏️</button>
-                        <button class="btn-toggle-portfolio" data-id="${p.id}" data-hidden="${p.is_hidden}" style="background: transparent; border: none; cursor: pointer; color: var(--text-secondary);" title="${p.is_hidden ? 'Restore' : 'Hide'}">${p.is_hidden ? '👁️' : '🚫'}</button>
-                        <button class="btn-delete-portfolio" data-id="${p.id}" style="background: transparent; border: none; cursor: pointer; color: var(--negative);" title="Delete">✕</button>
-                    </div>
-                </li>
-            `;
+            const li = document.createElement('li');
+            li.style.display = 'flex';
+            li.style.justifyContent = 'space-between';
+            li.style.alignItems = 'center';
+            li.style.padding = '0.5rem';
+            li.style.background = 'rgba(0,0,0,0.2)';
+            li.style.borderRadius = '4px';
+
+            const nameSpan = document.createElement('span');
+            if (p.is_hidden) nameSpan.style.textDecoration = 'line-through';
+            if (p.is_hidden) nameSpan.style.opacity = '0.5';
+            nameSpan.textContent = p.name + (isCurrent ? ' (active)' : '');
+
+            const btnWrap = document.createElement('div');
+            btnWrap.style.display = 'flex';
+            btnWrap.style.gap = '0.2rem';
+
+            const renameBtn = document.createElement('button');
+            renameBtn.className = 'btn-rename-portfolio';
+            renameBtn.setAttribute('data-id', p.id);
+            renameBtn.setAttribute('data-name', p.name);
+            renameBtn.style.background = 'transparent';
+            renameBtn.style.border = 'none';
+            renameBtn.style.cursor = 'pointer';
+            renameBtn.style.color = 'var(--text-secondary)';
+            renameBtn.title = 'Rename';
+            renameBtn.textContent = '✏️';
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'btn-toggle-portfolio';
+            toggleBtn.setAttribute('data-id', p.id);
+            toggleBtn.setAttribute('data-hidden', String(p.is_hidden));
+            toggleBtn.style.background = 'transparent';
+            toggleBtn.style.border = 'none';
+            toggleBtn.style.cursor = 'pointer';
+            toggleBtn.style.color = 'var(--text-secondary)';
+            toggleBtn.title = p.is_hidden ? 'Restore' : 'Hide';
+            toggleBtn.textContent = p.is_hidden ? '👁️' : '🚫';
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn-delete-portfolio';
+            delBtn.setAttribute('data-id', p.id);
+            delBtn.style.background = 'transparent';
+            delBtn.style.border = 'none';
+            delBtn.style.cursor = 'pointer';
+            delBtn.style.color = 'var(--negative)';
+            delBtn.title = 'Delete';
+            delBtn.textContent = '✕';
+
+            btnWrap.appendChild(renameBtn);
+            btnWrap.appendChild(toggleBtn);
+            btnWrap.appendChild(delBtn);
+
+            li.appendChild(nameSpan);
+            li.appendChild(btnWrap);
+            managePortfoliosList.appendChild(li);
         });
 
         if (!hasVisible && portfolios.length > 0) {
             currentPortfolioId = portfolios[0].id;
-            selectEl.innerHTML = `<option value="${currentPortfolioId}">${portfolios[0].name}</option>`;
+            const opt = document.createElement('option');
+            opt.value = currentPortfolioId;
+            opt.textContent = portfolios[0].name;
+            selectEl.appendChild(opt);
         }
 
         if (!currentPortfolioId && portfolios.length > 0) {
@@ -391,7 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctx = document.getElementById('portfolioChart').getContext('2d');
 
         const labels = historyData.map(d => d.date);
-        
+
         let baselineTotalValue = historyData[0]?.totalValue || 1;
         const totalValues = historyData.map(d => {
             if (chartViewMode === 'percentage') {
@@ -423,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = historyData.map(d => {
                 const holding = d.holdings.find(h => h.ticker === ticker);
                 const val = holding ? (holding.shares * holding.price) : 0;
-                
+
                 if (chartViewMode === 'percentage') {
                     if (baselineHoldingValue === null && val > 0) {
                         baselineHoldingValue = val; // First non-zero value is baseline
@@ -574,7 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 color: 'rgba(255, 255, 255, 0.2)'
             };
         }
-        
+
         // Diagonal cell (self-correlation)
         if (Math.abs(r - 1.0) < 0.0001) {
             return {
@@ -610,25 +719,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (r === null) {
             return `Insufficient historical data to compute correlation between <strong>${t1}</strong> and <strong>${t2}</strong> (requires at least 3 common price dates).`;
         }
-        
-        const valStr = r.toFixed(2);
+
+        const valStr = r === null ? 'N/A' : r.toFixed(2);
         let desc = '';
-        
-        if (r > 0.7) {
-            desc = `<span style="color: #f87171;">Strong positive correlation</span>. They tend to move in tandem, providing <span style="color: #f87171; font-weight: 600;">low diversification</span>.`;
+        if (r === null) {
+            desc = 'Insufficient historical data to compute correlation.';
+        } else if (r > 0.7) {
+            desc = 'Strong positive correlation — they tend to move in tandem (low diversification).';
         } else if (r > 0.3) {
-            desc = `<span style="color: #fb923c;">Moderate positive correlation</span>. Some diversification benefits, but they will often move together.`;
+            desc = 'Moderate positive correlation — some diversification benefits, but they often move together.';
         } else if (r > 0.1) {
-            desc = `<span style="color: #fbbf24;">Weak positive correlation</span>. Moderate diversification benefit.`;
+            desc = 'Weak positive correlation — moderate diversification benefit.';
         } else if (r >= -0.1) {
-            desc = `<span style="color: #4ade80; font-weight: 600;">Uncorrelated (near 0)</span>. Independent movements. This is an <span style="color: #4ade80; font-weight: 600;">excellent diversification</span> benefit!`;
+            desc = 'Uncorrelated (near 0) — independent movements and good diversification.';
         } else if (r >= -0.3) {
-            desc = `<span style="color: #60a5fa; font-weight: 600;">Weak negative correlation</span>. Tends to move in opposite directions, providing <span style="color: #60a5fa; font-weight: 600;">great diversification and hedging</span>.`;
+            desc = 'Weak negative correlation — tends to move oppositely, offering hedging benefits.';
         } else {
-            desc = `<span style="color: #818cf8; font-weight: 600;">Strong negative correlation</span>. Moves in opposite directions, providing <span style="color: #818cf8; font-weight: 600;">outstanding hedging and risk reduction</span>!`;
+            desc = 'Strong negative correlation — moves in opposite directions, offering strong hedging and risk reduction.';
         }
-        
-        return `<strong>${t1}</strong> and <strong>${t2}</strong> return correlation is <strong>${valStr}</strong>: ${desc}`;
+
+        return `${t1} and ${t2} return correlation is ${valStr}: ${desc}`;
     };
 
     const renderCorrelationHeatmap = (data) => {
@@ -644,43 +754,61 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p style="font-size: 0.85rem; max-width: 400px; margin: 0 auto;">You need at least 2 non-cash assets in this portfolio to calculate return correlations and analyze diversification quality.</p>
                 </div>
             `;
-            correlationDetails.innerHTML = "Add more tickers to visualize diversification quality.";
+            correlationDetails.textContent = 'Add more tickers to visualize diversification quality.';
             return;
         }
 
-        // Build table
-        let html = '<table class="correlation-matrix">';
-        
-        // Header row
-        html += '<thead><tr><th></th>';
-        tickers.forEach(t => {
-            html += `<th class="col-hdr">${t}</th>`;
-        });
-        html += '</tr></thead><tbody>';
+        // Build table using DOM APIs to avoid injecting user data directly as HTML
+        const table = document.createElement('table');
+        table.className = 'correlation-matrix';
 
-        // Data rows
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        const emptyTh = document.createElement('th');
+        headRow.appendChild(emptyTh);
+        tickers.forEach(t => {
+            const th = document.createElement('th');
+            th.className = 'col-hdr';
+            th.textContent = t;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
         tickers.forEach(t1 => {
-            html += `<tr><th class="row-hdr">${t1}</th>`;
+            const tr = document.createElement('tr');
+            const rowHdr = document.createElement('th');
+            rowHdr.className = 'row-hdr';
+            rowHdr.textContent = t1;
+            tr.appendChild(rowHdr);
+
             tickers.forEach(t2 => {
+                const td = document.createElement('td');
+                td.className = 'corr-cell';
                 const r = matrix[t1][t2];
                 const style = getCorrCellStyle(r);
                 const valStr = r === null ? 'N/A' : r.toFixed(2);
-                
-                html += `
-                    <td class="corr-cell" 
-                        data-t1="${t1}" 
-                        data-t2="${t2}" 
-                        data-r="${r !== null ? r : ''}"
-                        style="background: ${style.bg}; border: ${style.border}; color: ${style.color};">
-                        ${valStr}
-                    </td>
-                `;
+
+                td.dataset.t1 = t1;
+                td.dataset.t2 = t2;
+                td.dataset.r = (r !== null) ? String(r) : '';
+
+                td.style.background = style.bg;
+                td.style.border = style.border;
+                td.style.color = style.color;
+                td.textContent = valStr;
+                tr.appendChild(td);
             });
-            html += '</tr>';
+
+            tbody.appendChild(tr);
         });
 
-        html += '</tbody></table>';
-        correlationContainer.innerHTML = html;
+        table.appendChild(tbody);
+
+        // Replace container contents
+        correlationContainer.innerHTML = '';
+        correlationContainer.appendChild(table);
 
         // Hover listeners for custom dynamic explanation box
         const cells = correlationContainer.querySelectorAll('.corr-cell');
@@ -690,8 +818,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const t2 = cell.dataset.t2;
                 const rRaw = cell.dataset.r;
                 const r = rRaw === '' ? null : parseFloat(rRaw);
-                correlationDetails.innerHTML = getCorrExplanation(t1, t2, r);
-                
+                correlationDetails.textContent = getCorrExplanation(t1, t2, r);
+
                 // Highlight row/col header visually
                 cells.forEach(c => {
                     if (c.dataset.t1 === t1 || c.dataset.t2 === t2) {
@@ -701,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             cell.addEventListener('mouseleave', () => {
-                correlationDetails.innerHTML = 'Hover over any cell in the matrix to analyze asset diversification.';
+                correlationDetails.textContent = 'Hover over any cell in the matrix to analyze asset diversification.';
                 cells.forEach(c => c.classList.remove('active-hover'));
             });
         });

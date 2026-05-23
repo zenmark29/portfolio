@@ -1,4 +1,6 @@
 import express from 'express';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -17,6 +19,11 @@ const port = process.env.PORT || 3000;
 // Initialize global dependencies
 const dbManager = new DatabaseManager();
 const marketData = new MarketData();
+
+// Security middlewares
+app.use(helmet());
+const limiter = rateLimit({ windowMs: 60 * 1000, max: 60 }); // 60 requests/minute per IP
+app.use(limiter);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../../public')));
@@ -171,7 +178,7 @@ app.post('/api/portfolios/:id/import', async (req, res) => {
 
         portfolio.importHoldings(holdings, generatedAt || null);
         await portfolio.ensureAssetNames();
-        
+
         const status = portfolio.getPortfolioStatus();
         res.json({ success: true, data: status });
     } catch (error) {
@@ -202,6 +209,6 @@ app.post('/api/portfolios/:id/prices/update', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    logger.info(`Portfolio Web UI running on http://localhost:${port}`);
+app.listen(port, '127.0.0.1', () => {
+    logger.info(`Portfolio Web UI running on http://127.0.0.1:${port}`);
 });

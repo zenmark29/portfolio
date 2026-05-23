@@ -26,6 +26,8 @@
     "better-sqlite3": "^12.8.0",
     "chart.js": "^4.5.1",
     "express": "^4.19.2",
+    "helmet": "^6.0.0",
+    "express-rate-limit": "^6.7.0",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^4.7.1"
   },

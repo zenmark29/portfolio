@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert';
+import DatabaseManager from '../core/DatabaseManager.js';
+
+test('V3 migration adds name column when missing', () => {
+    const dm = new DatabaseManager(':memory:');
+
+    // Replace db with a stub that reports column missing and captures exec
+    let execCalled = false;
+    let execSql = null;
+    dm.db = {
+        prepare: (sql) => ({ get: () => ({ count: 0 }) }),
+        exec: (sql) => { execCalled = true; execSql = sql; }
+    };
+
+    // Capture logs
+    const origLog = dm.log;
+    const logs = [];
+    dm.log = (m) => logs.push(m);
+
+    dm._runV3Schema();
+
+    dm.log = origLog;
+
+    assert.strictEqual(execCalled, true);
+    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN name'));
+    assert.ok(logs.some(l => l.includes('V3 - added name column')));
+});
+
+test('V3 migration handles prepare errors by calling handleError', () => {
+    const dm = new DatabaseManager(':memory:');
+
+    let handled = false;
+    const origHandle = dm.handleError;
+    dm.handleError = (ctx, err) => {
+        handled = true;
+        assert.strictEqual(ctx, 'Schema V3');
+        assert.ok(err instanceof Error);
+    };
+
+    dm.db = {
+        prepare: () => { throw new Error('boom'); },
+        exec: () => {}
+    };
+
+    dm._runV3Schema();
+
+    dm.handleError = origHandle;
+    assert.strictEqual(handled, true);
+});
