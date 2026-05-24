@@ -21,7 +21,7 @@ class Investment extends BaseObject {
 
     /**
      * Gets the total value of this investment based on a given price.
-     * @param {number} currentPrice 
+     * @param {number} currentPrice
      * @returns {number}
      */
     getValue(currentPrice) {
@@ -33,7 +33,7 @@ class Investment extends BaseObject {
 
     /**
      * Calculates the target value in dollars.
-     * @param {number} totalPortfolioValue 
+     * @param {number} totalPortfolioValue
      * @returns {number}
      */
     getTargetValue(totalPortfolioValue) {
@@ -42,8 +42,8 @@ class Investment extends BaseObject {
 
     /**
      * Calculates how many dollars need to be bought (positive) or sold (negative).
-     * @param {number} currentPrice 
-     * @param {number} totalPortfolioValue 
+     * @param {number} currentPrice
+     * @param {number} totalPortfolioValue
      * @returns {number}
      */
     getRebalanceAmount(currentPrice, totalPortfolioValue) {

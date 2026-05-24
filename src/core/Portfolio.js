@@ -355,7 +355,7 @@ class Portfolio extends BaseObject {
         for (let i = 1; i < alignedPrices.length; i++) {
             const prev = alignedPrices[i - 1];
             const curr = alignedPrices[i];
-            
+
             // Calculate daily percentage returns
             const r1 = (curr.price1 - prev.price1) / prev.price1;
             const r2 = (curr.price2 - prev.price2) / prev.price2;
@@ -409,11 +409,11 @@ class Portfolio extends BaseObject {
         for (let i = 0; i < tickers.length; i++) {
             const t1 = tickers[i];
             matrix[t1][t1] = 1.0; // self-correlation is 1.0
-            
+
             for (let j = i + 1; j < tickers.length; j++) {
                 const t2 = tickers[j];
                 const corr = this.calculateCorrelation(t1, t2);
-                
+
                 // Since correlation matrix is symmetric
                 matrix[t1][t2] = corr;
                 matrix[t2][t1] = corr;

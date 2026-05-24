@@ -353,26 +353,26 @@ input:focus {
     transition: all 0.2s ease;
 }
 
-.grid-input:hover { 
-    border-color: rgba(255,255,255,0.2); 
-    background: rgba(255,255,255,0.05); 
+.grid-input:hover {
+    border-color: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.05);
 }
 
-.grid-input:focus { 
-    border-color: #60a5fa; 
-    background: rgba(15,23,42,0.8); 
-    outline: none; 
-    box-shadow: 0 0 0 2px rgba(59,130,246,0.2); 
+.grid-input:focus {
+    border-color: #60a5fa;
+    background: rgba(15,23,42,0.8);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
 
 .shares-input {
     width: 110px;
 }
 
-.target-input { 
-    font-size: 0.75em; 
-    color: var(--text-primary); 
-    width: 60px; 
+.target-input {
+    font-size: 0.75em;
+    color: var(--text-primary);
+    width: 60px;
 }
 
 .type-input {
@@ -394,9 +394,9 @@ input:focus {
     transition: all 0.2s ease;
 }
 
-.btn-delete:hover { 
-    background: var(--danger-bg); 
-    color: var(--negative); 
+.btn-delete:hover {
+    background: var(--danger-bg);
+    color: var(--negative);
 }
 
 /* Correlation Heatmap Matrix Styles */
