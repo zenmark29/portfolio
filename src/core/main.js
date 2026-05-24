@@ -141,19 +141,29 @@ app.get('/api/portfolios/:id/correlation', (req, res) => {
 app.post('/api/portfolios/:id/investments', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
-        const { ticker, shares, targetPercentage, type, macroCategory } = req.body;
+        const { ticker, shares, targetPercentage, type, macroCategory, fcfYield, payoutRatio, roic, annualDividend } = req.body;
 
         if (!ticker || shares === undefined || targetPercentage === undefined) {
              return res.status(400).json({ success: false, error: 'Ticker, shares, and targetPercentage are required' });
         }
 
-        const newInvestment = new Investment(ticker, parseFloat(shares), parseFloat(targetPercentage), null, type || null, macroCategory || null);
         const existingIndex = portfolio.investments.findIndex(i => i.ticker === ticker);
+        const existingInvestment = existingIndex >= 0 ? portfolio.investments[existingIndex] : null;
+
+        const newInvestment = new Investment(
+            ticker,
+            parseFloat(shares),
+            parseFloat(targetPercentage),
+            existingInvestment ? existingInvestment.name : null,
+            type !== undefined ? type : (existingInvestment ? existingInvestment.type : null),
+            macroCategory !== undefined ? macroCategory : (existingInvestment ? existingInvestment.macroCategory : null),
+            fcfYield !== undefined ? parseFloat(fcfYield) : (existingInvestment ? existingInvestment.fcfYield : null),
+            payoutRatio !== undefined ? parseFloat(payoutRatio) : (existingInvestment ? existingInvestment.payoutRatio : null),
+            roic !== undefined ? parseFloat(roic) : (existingInvestment ? existingInvestment.roic : null),
+            annualDividend !== undefined ? parseFloat(annualDividend) : (existingInvestment ? existingInvestment.annualDividend : null)
+        );
 
         if (existingIndex >= 0) {
-            // Preserve the name if not provided
-            const existingName = portfolio.investments[existingIndex].name;
-            newInvestment.name = existingName;
             portfolio.investments[existingIndex] = newInvestment;
         } else {
             portfolio.investments.push(newInvestment);

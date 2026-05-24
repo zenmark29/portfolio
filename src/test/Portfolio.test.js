@@ -79,6 +79,20 @@ test('Portfolio status calculation', () => {
     assert.strictEqual(newStatus.actualPercentageSum, 1.0);
 });
 
+test('Portfolio status includes extended financial metrics', () => {
+    const inv = new Investment('AAPL', 10, 0.5, null, null, null, 0.12, 0.3, 0.15, 1.2);
+    const portfolio = new Portfolio(1, new DatabaseManager(':memory:'), null);
+    portfolio.setInvestments([inv]);
+
+    const status = portfolio.getPortfolioStatus();
+    const aapl = status.details.find(d => d.ticker === 'AAPL');
+
+    assert.strictEqual(aapl.fcfYield, 0.12);
+    assert.strictEqual(aapl.payoutRatio, 0.3);
+    assert.strictEqual(aapl.roic, 0.15);
+    assert.strictEqual(aapl.annualDividend, 1.2);
+});
+
 test('Portfolio load and save investments', () => {
     const dbm = new DatabaseManager(':memory:');
     const portfolio = new Portfolio(1, dbm, null);
@@ -414,7 +428,7 @@ test('Portfolio ensureAssetNames fetches missing names and handles errors', asyn
     assert.strictEqual(portfolio.investments.find(i => i.ticker === 'CASH').name, 'Cash');
     assert.strictEqual(portfolio.investments.find(i => i.ticker === 'FUNXX').name, 'Money Market Fund');
     assert.strictEqual(portfolio.investments.find(i => i.ticker === 'ERROR').name, null); // Failed
-    
+
     // Call again to hit the fetchCount > 0 condition if AAPL and ERROR both triggered it,
     // though the loop continues immediately on CASH/FUNXX
     // To properly hit fetchCount > 0 delay, we can just let it run. The test might take 1s because of the delay.

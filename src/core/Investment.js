@@ -9,7 +9,7 @@ class Investment extends BaseObject {
      * @param {string|null} type - Asset type classification
      * @param {string|null} macroCategory - Macro category classification
      */
-    constructor(ticker, shares = 0, targetPercentage = 0, name = null, type = null, macroCategory = null) {
+    constructor(ticker, shares = 0, targetPercentage = 0, name = null, type = null, macroCategory = null, fcfYield = null, payoutRatio = null, roic = null, annualDividend = null) {
         super();
         this.ticker = ticker;
         this.shares = shares;
@@ -17,6 +17,10 @@ class Investment extends BaseObject {
         this.name = name;
         this.type = type;
         this.macroCategory = macroCategory;
+        this.fcfYield = fcfYield;
+        this.payoutRatio = payoutRatio;
+        this.roic = roic;
+        this.annualDividend = annualDividend;
     }
 
     /**

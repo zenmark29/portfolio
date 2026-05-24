@@ -28,8 +28,19 @@ class Portfolio extends BaseObject {
      * Loads investments and latest prices from the database for this specific portfolio.
      */
     loadInvestments() {
-        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name, type, macro_category FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
-        this.investments = rows.map(r => new Investment(r.ticker, r.shares, r.target_percentage, r.name, r.type, r.macro_category));
+        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name, type, macro_category, fcf_yield, payout_ratio, roic, annual_dividend FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
+        this.investments = rows.map(r => new Investment(
+            r.ticker,
+            r.shares,
+            r.target_percentage,
+            r.name,
+            r.type,
+            r.macro_category,
+            r.fcf_yield,
+            r.payout_ratio,
+            r.roic,
+            r.annual_dividend
+        ));
 
         const hasCash = this.investments.some(inv => inv.ticker === 'CASH');
         if (!hasCash) {
@@ -61,12 +72,24 @@ class Portfolio extends BaseObject {
      */
     saveInvestments() {
         const insert = this.dbManager.db.prepare(
-            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage, name, type, macro_category) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage, name=COALESCE(excluded.name, investments.name), type=excluded.type, macro_category=excluded.macro_category'
+            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage, name, type, macro_category, fcf_yield, payout_ratio, roic, annual_dividend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage, name=COALESCE(excluded.name, investments.name), type=excluded.type, macro_category=excluded.macro_category, fcf_yield=excluded.fcf_yield, payout_ratio=excluded.payout_ratio, roic=excluded.roic, annual_dividend=excluded.annual_dividend'
         );
 
         const transaction = this.dbManager.db.transaction((investments) => {
             for (const inv of investments) {
-                insert.run(this.portfolioId, inv.ticker, inv.shares, inv.targetPercentage, inv.name, inv.type, inv.macroCategory);
+                insert.run(
+                    this.portfolioId,
+                    inv.ticker,
+                    inv.shares,
+                    inv.targetPercentage,
+                    inv.name,
+                    inv.type,
+                    inv.macroCategory,
+                    inv.fcfYield,
+                    inv.payoutRatio,
+                    inv.roic,
+                    inv.annualDividend
+                );
             }
         });
 
@@ -288,6 +311,10 @@ class Portfolio extends BaseObject {
                 value: value,
                 type: inv.type,
                 macroCategory: inv.macroCategory,
+                fcfYield: inv.fcfYield,
+                payoutRatio: inv.payoutRatio,
+                roic: inv.roic,
+                annualDividend: inv.annualDividend,
                 targetPercentage: inv.targetPercentage,
                 actualPercentage: actualPercentage,
                 differencePercentage: diffPercentage,

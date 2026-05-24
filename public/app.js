@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Formatters
     const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
     const formatPercent = (val) => (val * 100).toFixed(2) + '%';
+    const formatRealValue = (val) => Number.isFinite(val) ? val.toFixed(2) : '0.00';
 
     // Utilities
     const showError = (msg) => {
@@ -268,6 +269,22 @@ document.addEventListener('DOMContentLoaded', () => {
             macroCategoryInput.placeholder = 'e.g. Tech';
             tdMacroCategory.appendChild(macroCategoryInput);
 
+            // FCF Yield cell
+            const tdFcfYield = document.createElement('td');
+            tdFcfYield.textContent = formatRealValue(inv.fcfYield);
+
+            // Payout Ratio cell
+            const tdPayoutRatio = document.createElement('td');
+            tdPayoutRatio.textContent = formatRealValue(inv.payoutRatio);
+
+            // ROIC cell
+            const tdRoic = document.createElement('td');
+            tdRoic.textContent = formatRealValue(inv.roic);
+
+            // Annual Dividend cell
+            const tdAnnualDividend = document.createElement('td');
+            tdAnnualDividend.textContent = formatRealValue(inv.annualDividend);
+
             // Percent cell with target input
             const tdPercent = document.createElement('td');
             tdPercent.className = 'percent-cell';
@@ -323,6 +340,10 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.appendChild(tdValue);
             tr.appendChild(tdType);
             tr.appendChild(tdMacroCategory);
+            tr.appendChild(tdFcfYield);
+            tr.appendChild(tdPayoutRatio);
+            tr.appendChild(tdRoic);
+            tr.appendChild(tdAnnualDividend);
             tr.appendChild(tdPercent);
             tr.appendChild(tdDiff);
             tr.appendChild(tdActions);
