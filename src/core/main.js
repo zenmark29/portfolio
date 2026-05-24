@@ -141,16 +141,19 @@ app.get('/api/portfolios/:id/correlation', (req, res) => {
 app.post('/api/portfolios/:id/investments', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
-        const { ticker, shares, targetPercentage } = req.body;
+        const { ticker, shares, targetPercentage, type, macroCategory } = req.body;
 
         if (!ticker || shares === undefined || targetPercentage === undefined) {
              return res.status(400).json({ success: false, error: 'Ticker, shares, and targetPercentage are required' });
         }
 
-        const newInvestment = new Investment(ticker, parseFloat(shares), parseFloat(targetPercentage));
+        const newInvestment = new Investment(ticker, parseFloat(shares), parseFloat(targetPercentage), null, type || null, macroCategory || null);
         const existingIndex = portfolio.investments.findIndex(i => i.ticker === ticker);
 
         if (existingIndex >= 0) {
+            // Preserve the name if not provided
+            const existingName = portfolio.investments[existingIndex].name;
+            newInvestment.name = existingName;
             portfolio.investments[existingIndex] = newInvestment;
         } else {
             portfolio.investments.push(newInvestment);

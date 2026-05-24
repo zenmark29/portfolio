@@ -20,7 +20,8 @@ class DatabaseManager extends BaseObject {
     _initializeSchema() {
         this._runV2Schema();
         this._runV3Schema();
-        
+        this._runV4Schema();
+
         // Ensure at least one default portfolio exists for fresh databases
         const count = this.db.prepare('SELECT count(*) as count FROM portfolios').get();
         if (count.count === 0) {
@@ -46,7 +47,7 @@ class DatabaseManager extends BaseObject {
                 UNIQUE(portfolio_id, ticker),
                 FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
             );
-            
+
             CREATE TABLE IF NOT EXISTS prices (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ticker TEXT NOT NULL,
@@ -86,6 +87,25 @@ class DatabaseManager extends BaseObject {
             }
         } catch (e) {
             this.handleError('Schema V3', e);
+        }
+    }
+
+    _runV4Schema() {
+        try {
+            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='type'").get().count > 0;
+            if (!columnExists) {
+                this.db.exec(`
+                    ALTER TABLE investments ADD COLUMN type TEXT;
+                    ALTER TABLE investments ADD COLUMN macro_category TEXT;
+                    ALTER TABLE investments ADD COLUMN fcf_yield REAL;
+                    ALTER TABLE investments ADD COLUMN payout_ratio REAL;
+                    ALTER TABLE investments ADD COLUMN roic REAL;
+                    ALTER TABLE investments ADD COLUMN annual_dividend REAL;
+                `);
+                this.log("Schema verified/initialized (V4 - added type column).");
+            }
+        } catch (e) {
+            this.handleError('Schema V4', e);
         }
     }
 }

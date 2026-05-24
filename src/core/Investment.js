@@ -6,13 +6,17 @@ class Investment extends BaseObject {
      * @param {number} shares
      * @param {number} targetPercentage - e.g., 0.25 for 25%
      * @param {string|null} name - The descriptive name of the asset
+     * @param {string|null} type - Asset type classification
+     * @param {string|null} macroCategory - Macro category classification
      */
-    constructor(ticker, shares = 0, targetPercentage = 0, name = null) {
+    constructor(ticker, shares = 0, targetPercentage = 0, name = null, type = null, macroCategory = null) {
         super();
         this.ticker = ticker;
         this.shares = shares;
         this.targetPercentage = targetPercentage;
         this.name = name;
+        this.type = type;
+        this.macroCategory = macroCategory;
     }
 
     /**

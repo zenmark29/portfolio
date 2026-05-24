@@ -246,6 +246,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const tdValue = document.createElement('td');
             tdValue.textContent = formatCurrency(inv.value);
 
+            // Type cell
+            const tdType = document.createElement('td');
+            const typeInput = document.createElement('input');
+            typeInput.type = 'text';
+            typeInput.className = 'grid-input type-input';
+            typeInput.setAttribute('data-ticker', inv.ticker);
+            typeInput.setAttribute('data-field', 'type');
+            typeInput.value = inv.type || '';
+            typeInput.placeholder = 'e.g. Stock';
+            tdType.appendChild(typeInput);
+
+            // Macro Category cell
+            const tdMacroCategory = document.createElement('td');
+            const macroCategoryInput = document.createElement('input');
+            macroCategoryInput.type = 'text';
+            macroCategoryInput.className = 'grid-input macro-category-input';
+            macroCategoryInput.setAttribute('data-ticker', inv.ticker);
+            macroCategoryInput.setAttribute('data-field', 'macroCategory');
+            macroCategoryInput.value = inv.macroCategory || '';
+            macroCategoryInput.placeholder = 'e.g. Tech';
+            tdMacroCategory.appendChild(macroCategoryInput);
+
             // Percent cell with target input
             const tdPercent = document.createElement('td');
             tdPercent.className = 'percent-cell';
@@ -299,6 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.appendChild(tdShares);
             tr.appendChild(tdPrice);
             tr.appendChild(tdValue);
+            tr.appendChild(tdType);
+            tr.appendChild(tdMacroCategory);
             tr.appendChild(tdPercent);
             tr.appendChild(tdDiff);
             tr.appendChild(tdActions);
@@ -992,12 +1016,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const ticker = e.target.dataset.ticker;
             const shares = tr.querySelector('.shares-input').value;
             const targetPercentage = tr.querySelector('.target-input').value;
+            const type = tr.querySelector('.type-input').value || null;
+            const macroCategory = tr.querySelector('.macro-category-input').value || null;
 
             try {
                 const res = await fetch(`/api/portfolios/${currentPortfolioId}/investments`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ticker, shares, targetPercentage })
+                    body: JSON.stringify({ ticker, shares, targetPercentage, type, macroCategory })
                 });
                 const result = await res.json();
                 if (result.success) renderPortfolio(result.data);

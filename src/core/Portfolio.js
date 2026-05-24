@@ -28,8 +28,8 @@ class Portfolio extends BaseObject {
      * Loads investments and latest prices from the database for this specific portfolio.
      */
     loadInvestments() {
-        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
-        this.investments = rows.map(r => new Investment(r.ticker, r.shares, r.target_percentage, r.name));
+        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name, type, macro_category FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
+        this.investments = rows.map(r => new Investment(r.ticker, r.shares, r.target_percentage, r.name, r.type, r.macro_category));
 
         const hasCash = this.investments.some(inv => inv.ticker === 'CASH');
         if (!hasCash) {
@@ -61,12 +61,12 @@ class Portfolio extends BaseObject {
      */
     saveInvestments() {
         const insert = this.dbManager.db.prepare(
-            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage, name) VALUES (?, ?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage, name=COALESCE(excluded.name, investments.name)'
+            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage, name, type, macro_category) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage, name=COALESCE(excluded.name, investments.name), type=excluded.type, macro_category=excluded.macro_category'
         );
 
         const transaction = this.dbManager.db.transaction((investments) => {
             for (const inv of investments) {
-                insert.run(this.portfolioId, inv.ticker, inv.shares, inv.targetPercentage, inv.name);
+                insert.run(this.portfolioId, inv.ticker, inv.shares, inv.targetPercentage, inv.name, inv.type, inv.macroCategory);
             }
         });
 
@@ -286,6 +286,8 @@ class Portfolio extends BaseObject {
                 shares: inv.shares,
                 price: price,
                 value: value,
+                type: inv.type,
+                macroCategory: inv.macroCategory,
                 targetPercentage: inv.targetPercentage,
                 actualPercentage: actualPercentage,
                 differencePercentage: diffPercentage,

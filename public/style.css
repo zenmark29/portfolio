@@ -49,21 +49,23 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1rem;
 }
 
 .app-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 3rem;
+    margin-bottom: 1rem;
     animation: fadeInDown 0.6s ease-out;
+    flex-wrap: wrap;
+    gap: 0.75rem;
 }
 
 h1 {
-    font-size: 2.25rem;
+    font-size: 1.5rem;
     font-weight: 800;
     letter-spacing: -0.02em;
 }
@@ -85,14 +87,14 @@ h1 span {
 
 .hero-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
     animation: fadeInUp 0.7s ease-out;
 }
 
 .stat-card {
-    padding: 2rem;
+    padding: 1rem;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -126,7 +128,7 @@ h1 span {
 }
 
 .stat-card h2 {
-    font-size: 2.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
     letter-spacing: -0.02em;
 }
@@ -134,7 +136,7 @@ h1 span {
 .grid-layout {
     display: grid;
     grid-template-columns: 3.5fr 1fr;
-    gap: 1.5rem;
+    gap: 0.75rem;
     animation: fadeInUp 0.8s ease-out;
 }
 
@@ -149,16 +151,16 @@ h1 span {
 }
 
 .investments-panel {
-    padding: 2rem;
+    padding: 1rem;
     overflow-x: auto;
 }
 
 .action-panel {
-    padding: 2rem;
+    padding: 1rem;
 }
 
 .action-panel h3, .investments-panel h3 {
-    font-size: 1.25rem;
+    font-size: 1rem;
     margin-bottom: 0.5rem;
 }
 
@@ -177,17 +179,18 @@ table {
 
 th {
     text-align: left;
-    padding: 1rem;
+    padding: 0.5rem 0.75rem;
     color: var(--text-secondary);
     font-weight: 500;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     border-bottom: 1px solid var(--border-color);
 }
 
 td {
-    padding: 1.25rem 1rem;
+    padding: 0.75rem 0.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
 }
 
 tr {
@@ -232,8 +235,8 @@ tbody tr:hover {
 
 label {
     display: block;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
     font-weight: 500;
 }
@@ -243,9 +246,10 @@ input {
     background: rgba(15, 23, 42, 0.5);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 0.5rem;
     font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
     outline: none;
     transition: all 0.2s ease;
 }
@@ -284,12 +288,12 @@ input:focus {
 }
 
 .btn-secondary {
-    padding: 0 1rem;
-    height: 35px;
+    padding: 0 0.75rem;
+    height: 30px;
     background: rgba(15, 23, 42, 0.8);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    font-size: 0.875rem;
+    font-size: 0.75rem;
 }
 
 .btn-secondary:hover {
@@ -343,7 +347,7 @@ input:focus {
     border: 1px solid transparent;
     color: var(--text-primary);
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 0.8rem;
     padding: 0.2rem 0.4rem;
     border-radius: 4px;
     transition: all 0.2s ease;
@@ -362,13 +366,21 @@ input:focus {
 }
 
 .shares-input {
-    width: 140px;
+    width: 110px;
 }
 
 .target-input { 
-    font-size: 0.9em; 
+    font-size: 0.75em; 
     color: var(--text-primary); 
-    width: 70px; 
+    width: 60px; 
+}
+
+.type-input {
+    width: 100px;
+}
+
+.macro-category-input {
+    width: 100px;
 }
 
 .btn-delete {
@@ -429,12 +441,12 @@ input:focus {
 }
 
 .corr-cell {
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: 50px;
     text-align: center;
     vertical-align: middle;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.75rem;
     border-radius: 0.5rem;
     color: var(--text-primary);
     position: relative;
