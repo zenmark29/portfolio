@@ -208,8 +208,17 @@ class Portfolio extends BaseObject {
         const insertPrice = this.dbManager.db.prepare(
             'INSERT OR IGNORE INTO prices (ticker, date, price) VALUES (?, ?, ?)'
         );
+        const checkPrice = this.dbManager.db.prepare(
+            'SELECT price FROM prices WHERE ticker = ? AND date = ?'
+        );
         for (const inv of this.investments) {
             if (inv.ticker === 'CASH' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) continue;
+
+            const existing = checkPrice.get(inv.ticker, date);
+            if (existing !== undefined) {
+                this.log(`Price for ${inv.ticker} on ${date} already exists in DB. Skipping API call.`);
+                continue;
+            }
 
             try {
                 this.log(`Fetching price for ${inv.ticker} on ${date}`);
@@ -448,6 +457,94 @@ class Portfolio extends BaseObject {
         }
 
         return { tickers, matrix };
+    }
+
+    /**
+     * Updates fundamental metrics from Alpha Vantage for Stock and ETF investments in the portfolio.
+     * Respects throttling thresholds (30 days for stocks, 90 days for ETFs).
+     */
+    async updateFundamentalMetrics() {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const selectQuery = this.dbManager.db.prepare(
+            'SELECT last_fundamental_update, type FROM investments WHERE portfolio_id = ? AND ticker = ?'
+        );
+        
+        const updateQuery = this.dbManager.db.prepare(`
+            UPDATE investments 
+            SET annual_dividend = ?, payout_ratio = ?, roic = ?, last_fundamental_update = ?
+            WHERE portfolio_id = ? AND ticker = ?
+        `);
+
+        for (const inv of this.investments) {
+            const ticker = inv.ticker;
+            if (ticker === 'CASH' || (ticker.length === 5 && ticker.endsWith('XX'))) continue;
+
+            const record = selectQuery.get(this.portfolioId, ticker);
+            if (!record) continue;
+
+            const type = (record.type || '').toUpperCase();
+            if (type !== 'STOCK' && type !== 'ETF') continue;
+
+            const lastUpdate = record.last_fundamental_update;
+            let needsUpdate = false;
+
+            if (!lastUpdate) {
+                needsUpdate = true;
+            } else {
+                const diffTime = Math.abs(new Date(today) - new Date(lastUpdate));
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const threshold = type === 'STOCK' ? 30 : 90;
+                if (diffDays >= threshold) {
+                    needsUpdate = true;
+                }
+            }
+
+            if (needsUpdate) {
+                try {
+                    if (type === 'STOCK') {
+                        this.log(`Syncing Stock fundamentals for ${ticker}...`);
+                        const data = await this.marketData.getStockFundamentals(ticker);
+                        if (data) {
+                            updateQuery.run(
+                                data.annualDividend,
+                                data.payoutRatio,
+                                data.roic,
+                                today,
+                                this.portfolioId,
+                                ticker
+                            );
+                            
+                            // Also update the local investment instance properties
+                            inv.annualDividend = data.annualDividend;
+                            inv.payoutRatio = data.payoutRatio;
+                            inv.roic = data.roic;
+                            this.log(`Stock fundamentals updated for ${ticker}.`);
+                        }
+                    } else if (type === 'ETF') {
+                        this.log(`Syncing ETF fundamentals for ${ticker}...`);
+                        const annualDividend = await this.marketData.getETFFundamentals(ticker);
+                        updateQuery.run(
+                            annualDividend,
+                            null, // ETF payout ratio set to null
+                            null, // ETF ROIC set to null
+                            today,
+                            this.portfolioId,
+                            ticker
+                        );
+                        
+                        inv.annualDividend = annualDividend;
+                        inv.payoutRatio = null;
+                        inv.roic = null;
+                        this.log(`ETF fundamentals updated for ${ticker}.`);
+                    }
+                } catch (error) {
+                    this.log(`Failed to update fundamentals for ${ticker}: ${error.message}`);
+                }
+            } else {
+                this.log(`Fundamentals for ${ticker} are up to date (last update: ${lastUpdate}). Skipping sync.`);
+            }
+        }
     }
 }
 

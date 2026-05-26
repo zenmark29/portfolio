@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import DatabaseManager from '../core/DatabaseManager.js';
 import Portfolio from '../core/Portfolio.js';
 import Investment from '../core/Investment.js';
+import MarketData from '../core/MarketData.js';
 
 test('Portfolio target percentage validation', () => {
     const portfolio = new Portfolio(1, new DatabaseManager(':memory:'), null);
@@ -299,6 +300,32 @@ test('Portfolio update daily prices with Mocks', async () => {
     assert.strictEqual(errPrice, 0); // Default if not found
 });
 
+test('Portfolio update daily prices skips API call if price already cached', async () => {
+    const dbm = new DatabaseManager(':memory:');
+    const date = MarketData.getPreviousBusinessDay();
+
+    // Cache the price in the DB beforehand
+    dbm.db.prepare('INSERT INTO prices (ticker, date, price) VALUES (?, ?, ?)').run('AAPL', date, 150);
+
+    let getEODPriceCalled = false;
+    const mockMarketData = {
+        getEODPrice: async (ticker) => {
+            getEODPriceCalled = true;
+            return 999; // Should not be called
+        }
+    };
+
+    const portfolio = new Portfolio(1, dbm, mockMarketData);
+    portfolio.setInvestments([
+        new Investment('AAPL', 10, 1.0)
+    ]);
+
+    await portfolio.updateDailyPrices();
+
+    assert.strictEqual(getEODPriceCalled, false);
+    assert.strictEqual(portfolio._getLatestPrice('AAPL'), 150); // Kept the cached price
+});
+
 test('Portfolio deletion and protection', () => {
     const dbm = new DatabaseManager(':memory:');
     const portfolio = new Portfolio(1, dbm, null);
@@ -492,4 +519,157 @@ test('Portfolio correlation matrix logic and calculations', () => {
     assert.strictEqual(result.matrix.B.B, 1.0);
     assert.ok(Math.abs(result.matrix.A.B - 1.0) < 0.0001);
     assert.ok(Math.abs(result.matrix.B.A - 1.0) < 0.0001);
+});
+
+test('Portfolio updateFundamentalMetrics processes Stock, ETF, CASH, other types and handles thresholds', async () => {
+    const dbm = new DatabaseManager(':memory:');
+    const today = new Date().toISOString().split('T')[0];
+
+    // Calculate dates for testing limits
+    const dateStockCached = new Date();
+    dateStockCached.setDate(dateStockCached.getDate() - 10); // 10 days ago (Stock should be skipped)
+    const strStockCached = dateStockCached.toISOString().split('T')[0];
+
+    const dateStockExpired = new Date();
+    dateStockExpired.setDate(dateStockExpired.getDate() - 35); // 35 days ago (Stock should be updated)
+    const strStockExpired = dateStockExpired.toISOString().split('T')[0];
+
+    const dateETFCached = new Date();
+    dateETFCached.setDate(dateETFCached.getDate() - 45); // 45 days ago (ETF should be skipped)
+    const strETFCached = dateETFCached.toISOString().split('T')[0];
+
+    const dateETFExpired = new Date();
+    dateETFExpired.setDate(dateETFExpired.getDate() - 95); // 95 days ago (ETF should be updated)
+    const strETFExpired = dateETFExpired.toISOString().split('T')[0];
+
+    // Mock MarketData
+    const mockMarketData = {
+        getStockFundamentals: async (ticker) => {
+            if (ticker === 'STOCK_ERR') throw new Error('API failed');
+            return {
+                annualDividend: 2.5,
+                payoutRatio: 0.4,
+                roic: 0.15
+            };
+        },
+        getETFFundamentals: async (ticker) => {
+            if (ticker === 'ETF_ERR') throw new Error('API failed');
+            return 1.8;
+        }
+    };
+
+    const portfolio = new Portfolio(1, dbm, mockMarketData);
+
+    // Setup investments of different types
+    const invCash = new Investment('CASH', 100, 0.1, 'Cash', 'CASH');
+    const invStockCached = new Investment('STK_OK', 10, 0.2, 'Stock Ok', 'STOCK');
+    const invStockExpired = new Investment('STK_EXP', 10, 0.2, 'Stock Expired', 'stock'); // case-insensitive test
+    const invStockErr = new Investment('STOCK_ERR', 10, 0.1, 'Stock Error', 'STOCK');
+    const invETFCached = new Investment('ETF_OK', 10, 0.2, 'ETF Ok', 'ETF');
+    const invETFExpired = new Investment('ETF_EXP', 10, 0.2, 'ETF Expired', 'etf'); // case-insensitive test
+    const invETFErr = new Investment('ETF_ERR', 10, 0.1, 'ETF Error', 'ETF');
+    const invBond = new Investment('BOND', 10, 0.1, 'Bond', 'BOND'); // neither STOCK nor ETF
+
+    portfolio.setInvestments([
+        invCash,
+        invStockCached,
+        invStockExpired,
+        invStockErr,
+        invETFCached,
+        invETFExpired,
+        invETFErr,
+        invBond
+    ]);
+
+    // Save to DB to insert columns
+    portfolio.saveInvestments();
+
+    // Directly modify last_fundamental_update fields in the database to simulate historical update dates
+    dbm.db.prepare("UPDATE investments SET last_fundamental_update = ? WHERE ticker = 'STK_OK'").run(strStockCached);
+    dbm.db.prepare("UPDATE investments SET last_fundamental_update = ? WHERE ticker = 'STK_EXP'").run(strStockExpired);
+    dbm.db.prepare("UPDATE investments SET last_fundamental_update = ? WHERE ticker = 'ETF_OK'").run(strETFCached);
+    dbm.db.prepare("UPDATE investments SET last_fundamental_update = ? WHERE ticker = 'ETF_EXP'").run(strETFExpired);
+
+    // Run synchronization
+    await portfolio.updateFundamentalMetrics();
+
+    // 1. CASH should not have last_fundamental_update
+    const cashRow = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'CASH'").get();
+    assert.strictEqual(cashRow.last_fundamental_update, null);
+
+    // 2. BOND should not be processed (no last_fundamental_update)
+    const bondRow = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'BOND'").get();
+    assert.strictEqual(bondRow.last_fundamental_update, null);
+
+    // 3. STK_OK should be skipped (keep old date)
+    const stkOkRow = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'STK_OK'").get();
+    assert.strictEqual(stkOkRow.last_fundamental_update, strStockCached);
+    assert.strictEqual(stkOkRow.annual_dividend, null);
+
+    // 4. STK_EXP should be updated to today and have fundamental values set
+    const stkExpRow = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'STK_EXP'").get();
+    assert.strictEqual(stkExpRow.last_fundamental_update, today);
+    assert.strictEqual(stkExpRow.annual_dividend, 2.5);
+    assert.strictEqual(stkExpRow.payout_ratio, 0.4);
+    assert.strictEqual(stkExpRow.roic, 0.15);
+    // Local instance properties check
+    assert.strictEqual(invStockExpired.annualDividend, 2.5);
+    assert.strictEqual(invStockExpired.payoutRatio, 0.4);
+    assert.strictEqual(invStockExpired.roic, 0.15);
+
+    // 5. ETF_OK should be skipped (keep old date)
+    const etfOkRow = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'ETF_OK'").get();
+    assert.strictEqual(etfOkRow.last_fundamental_update, strETFCached);
+    assert.strictEqual(etfOkRow.annual_dividend, null);
+
+    // 6. ETF_EXP should be updated to today, set annual_dividend and null payout/roic
+    const etfExpRow = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'ETF_EXP'").get();
+    assert.strictEqual(etfExpRow.last_fundamental_update, today);
+    assert.strictEqual(etfExpRow.annual_dividend, 1.8);
+    assert.strictEqual(etfExpRow.payout_ratio, null);
+    assert.strictEqual(etfExpRow.roic, null);
+    // Local instance check
+    assert.strictEqual(invETFExpired.annualDividend, 1.8);
+    assert.strictEqual(invETFExpired.payoutRatio, null);
+    assert.strictEqual(invETFExpired.roic, null);
+
+    // 7. STOCK_ERR should fail gracefully and not update date/values
+    const stkErrRow = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'STOCK_ERR'").get();
+    assert.strictEqual(stkErrRow.last_fundamental_update, null);
+
+    // 8. ETF_ERR should fail gracefully and not update date/values
+    const etfErrRow = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'ETF_ERR'").get();
+    assert.strictEqual(etfErrRow.last_fundamental_update, null);
+});
+
+test('Portfolio updateFundamentalMetrics edge cases for coverage', async () => {
+    const dbm = new DatabaseManager(':memory:');
+    const mockMarketData = {};
+    const portfolio = new Portfolio(1, dbm, mockMarketData);
+
+    // 1. Ticker ending in XX to cover length === 5 && endsWith('XX')
+    const invMMF = new Investment('FUNXX', 100, 0.1);
+    
+    // 2. Investment present on instance but deleted/not found in database
+    const invNotFound = new Investment('STK_EXP', 10, 0.2, 'Stock Expired', 'STOCK');
+
+    // 3. Investment with record type being falsy (null) in DB
+    const invNoType = new Investment('NOTYPE', 10, 0.2, 'No Type', null);
+
+    portfolio.setInvestments([
+        invMMF,
+        invNotFound,
+        invNoType
+    ]);
+
+    // Save to DB to insert invNoType and invMMF, but immediately delete invNotFound from DB to trigger the !record branch
+    portfolio.saveInvestments();
+    dbm.db.prepare("DELETE FROM investments WHERE portfolio_id = 1 AND ticker = 'STK_EXP'").run();
+
+    // Run synchronization
+    await portfolio.updateFundamentalMetrics();
+
+    // Check that STK_EXP was not processed, and NOTYPE was skipped because type is empty/not STOCK/ETF
+    const noTypeRow = dbm.db.prepare("SELECT last_fundamental_update FROM investments WHERE ticker = 'NOTYPE'").get();
+    assert.strictEqual(noTypeRow.last_fundamental_update, null);
 });

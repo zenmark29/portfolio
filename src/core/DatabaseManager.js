@@ -21,6 +21,7 @@ class DatabaseManager extends BaseObject {
         this._runV2Schema();
         this._runV3Schema();
         this._runV4Schema();
+        this._runV5Schema();
 
         // Ensure at least one default portfolio exists for fresh databases
         const count = this.db.prepare('SELECT count(*) as count FROM portfolios').get();
@@ -106,6 +107,20 @@ class DatabaseManager extends BaseObject {
             }
         } catch (e) {
             this.handleError('Schema V4', e);
+        }
+    }
+
+    _runV5Schema() {
+        try {
+            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='last_fundamental_update'").get().count > 0;
+            if (!columnExists) {
+                this.db.exec(`
+                    ALTER TABLE investments ADD COLUMN last_fundamental_update TEXT;
+                `);
+                this.log("Schema verified/initialized (V5 - added last_fundamental_update column).");
+            }
+        } catch (e) {
+            this.handleError('Schema V5', e);
         }
     }
 }

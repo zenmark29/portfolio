@@ -1,5 +1,6 @@
 import BaseObject from './BaseObject.js';
 import { restClient } from '@polygon.io/client-js';
+import { AlphaVantageClient } from 'av_api';
 
 class MarketData extends BaseObject {
     constructor() {
@@ -9,6 +10,12 @@ class MarketData extends BaseObject {
             this.handleError('Constructor', new Error('POLY_KEY environment variable is not set.'));
         }
         this.rest = restClient(apiKey);
+
+        const avKey = process.env.AV_KEY;
+        if (!avKey) {
+            this.handleError('Constructor', new Error('AV_KEY environment variable is not set.'));
+        }
+        this.avClient = new AlphaVantageClient(avKey);
     }
 
     /**
@@ -60,6 +67,51 @@ class MarketData extends BaseObject {
         } catch (error) {
             this.log(`Failed to fetch details for ${ticker}: ${error.message}`);
             return null;
+        }
+    }
+
+    /**
+     * Fetches fundamental metrics for STOCK types from Alpha Vantage OVERVIEW.
+     * @param {string} ticker
+     * @returns {Promise<{annualDividend: number, payoutRatio: number, roic: number}>}
+     */
+    async getStockFundamentals(ticker) {
+        try {
+            this.log(`Fetching Stock fundamentals from Alpha Vantage for ${ticker}`);
+            const payload = await this.avClient.request('OVERVIEW', { symbol: ticker, datatype: 'json' });
+
+            const parseVal = (v) => {
+                if (!v || v === 'None' || v === '-') return 0;
+                const parsed = parseFloat(v);
+                return Number.isNaN(parsed) ? 0 : parsed;
+            };
+
+            const dividendPerShare = parseVal(payload.DividendPerShare);
+            const payoutRatio = parseVal(payload.PayoutRatio);
+            const roic = parseVal(payload.ReturnOnInvestedCapitalTTM);
+
+            return {
+                annualDividend: dividendPerShare,
+                payoutRatio: payoutRatio,
+                roic: roic
+            };
+        } catch (error) {
+            this.handleError('getStockFundamentals', new Error(`Failed to fetch Stock fundamentals for ${ticker}: ${error.message}`));
+        }
+    }
+
+    /**
+     * Fetches trailing annual dividend for ETF types from Alpha Vantage TIME_SERIES_MONTHLY_ADJUSTED.
+     * @param {string} ticker
+     * @returns {Promise<number>} - Trailing annual dividend amount.
+     */
+    async getETFFundamentals(ticker) {
+        try {
+            this.log(`Fetching ETF dividends from Alpha Vantage for ${ticker}`);
+            const trailingDividend = await this.avClient.trailingAnnualDividend(ticker);
+            return trailingDividend;
+        } catch (error) {
+            this.handleError('getETFFundamentals', new Error(`Failed to fetch ETF fundamentals for ${ticker}: ${error.message}`));
         }
     }
 }

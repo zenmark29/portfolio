@@ -4,11 +4,17 @@ import MarketData from '../core/MarketData.js';
 
 test('MarketData logic and mocking', async () => {
     const originalKey = process.env.POLY_KEY;
+    const originalAVKey = process.env.AV_KEY;
     
+    // Test constructor constraints
     delete process.env.POLY_KEY;
     assert.throws(() => new MarketData(), /POLY_KEY environment variable is not set/);
     
     process.env.POLY_KEY = 'TEST_KEY';
+    delete process.env.AV_KEY;
+    assert.throws(() => new MarketData(), /AV_KEY environment variable is not set/);
+    
+    process.env.AV_KEY = 'TEST_AV_KEY';
     const md = new MarketData();
     
     md.rest = {
@@ -45,6 +51,56 @@ test('MarketData logic and mocking', async () => {
     const errName = await md.getAssetDetails('ERROR');
     assert.strictEqual(errName, null);
 
+    // Mock avClient methods
+    md.avClient = {
+        request: mock.fn(async (func, params) => {
+            if (params.symbol === 'ERROR') throw new Error('AV timeout');
+            if (params.symbol === 'NONE_TEST') {
+                return {
+                    DividendPerShare: 'None',
+                    PayoutRatio: '-',
+                    ReturnOnInvestedCapitalTTM: 'abc'
+                };
+            }
+            return {
+                DividendPerShare: '3.50',
+                PayoutRatio: '0.45',
+                ReturnOnInvestedCapitalTTM: '0.18'
+            };
+        }),
+        trailingAnnualDividend: mock.fn(async (symbol) => {
+            if (symbol === 'ERROR') throw new Error('AV timeout');
+            return 2.45;
+        })
+    };
+
+    // Test getStockFundamentals
+    const stockData = await md.getStockFundamentals('AAPL');
+    assert.deepStrictEqual(stockData, {
+        annualDividend: 3.50,
+        payoutRatio: 0.45,
+        roic: 0.18
+    });
+
+    const stockDataNone = await md.getStockFundamentals('NONE_TEST');
+    assert.deepStrictEqual(stockDataNone, {
+        annualDividend: 0,
+        payoutRatio: 0,
+        roic: 0
+    });
+
+    await assert.rejects(async () => {
+        await md.getStockFundamentals('ERROR');
+    }, /Failed to fetch Stock fundamentals for ERROR/);
+
+    // Test getETFFundamentals
+    const etfDividend = await md.getETFFundamentals('SPY');
+    assert.strictEqual(etfDividend, 2.45);
+
+    await assert.rejects(async () => {
+        await md.getETFFundamentals('ERROR');
+    }, /Failed to fetch ETF fundamentals for ERROR/);
+
     const prevDay = MarketData.getPreviousBusinessDay();
     assert.match(prevDay, /^\d{4}-\d{2}-\d{2}$/);
 
@@ -71,4 +127,5 @@ test('MarketData logic and mocking', async () => {
     
     global.Date = originalDate;
     process.env.POLY_KEY = originalKey;
+    process.env.AV_KEY = originalAVKey;
 });

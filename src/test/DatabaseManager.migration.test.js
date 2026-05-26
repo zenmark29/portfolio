@@ -95,3 +95,48 @@ test('V4 migration handles prepare errors by calling handleError', () => {
     dm.handleError = origHandle;
     assert.strictEqual(handled, true);
 });
+
+test('V5 migration adds last_fundamental_update column when missing', () => {
+    const dm = new DatabaseManager(':memory:');
+
+    let execCalled = false;
+    let execSql = null;
+    dm.db = {
+        prepare: (sql) => ({ get: () => ({ count: 0 }) }),
+        exec: (sql) => { execCalled = true; execSql = sql; }
+    };
+
+    const origLog = dm.log;
+    const logs = [];
+    dm.log = (m) => logs.push(m);
+
+    dm._runV5Schema();
+
+    dm.log = origLog;
+
+    assert.strictEqual(execCalled, true);
+    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN last_fundamental_update TEXT'));
+    assert.ok(logs.some(l => l.includes('V5 - added last_fundamental_update column')));
+});
+
+test('V5 migration handles prepare errors by calling handleError', () => {
+    const dm = new DatabaseManager(':memory:');
+
+    let handled = false;
+    const origHandle = dm.handleError;
+    dm.handleError = (ctx, err) => {
+        handled = true;
+        assert.strictEqual(ctx, 'Schema V5');
+        assert.ok(err instanceof Error);
+    };
+
+    dm.db = {
+        prepare: () => { throw new Error('boom'); },
+        exec: () => {}
+    };
+
+    dm._runV5Schema();
+
+    dm.handleError = origHandle;
+    assert.strictEqual(handled, true);
+});

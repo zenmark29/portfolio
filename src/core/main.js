@@ -215,6 +215,7 @@ app.post('/api/portfolios/:id/prices/update', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
         await portfolio.updateDailyPrices();
+        await portfolio.updateFundamentalMetrics();
         const status = portfolio.getPortfolioStatus();
         res.json({ success: true, data: status });
     } catch (error) {
