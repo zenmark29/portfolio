@@ -275,7 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Payout Ratio cell
             const tdPayoutRatio = document.createElement('td');
-            tdPayoutRatio.textContent = formatRealValue(inv.payoutRatio);
+            // change this to payback ratio which is inv.annualDividend / (inv.price)
+            paybackRatio = ((inv.price > 0 && inv.annualDividend >  0) ? inv.annualDividend / inv.price : 0);
+            tdPayoutRatio.textContent = formatPercent(paybackRatio);
 
             // ROIC cell
             const tdRoic = document.createElement('td');
