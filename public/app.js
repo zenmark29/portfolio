@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Annual Dividend cell
             const tdAnnualDividend = document.createElement('td');
-            tdAnnualDividend.textContent = formatRealValue(inv.annualDividend);
+            tdAnnualDividend.textContent = formatCurrency(inv.annualDividend);
 
             // Percent cell with target input
             const tdPercent = document.createElement('td');
