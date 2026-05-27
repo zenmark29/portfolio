@@ -462,17 +462,28 @@ class Portfolio extends BaseObject {
     /**
      * Updates fundamental metrics from Alpha Vantage for Stock and ETF investments in the portfolio.
      * Respects throttling thresholds (30 days for stocks, 90 days for ETFs).
+     * This updates both the active object being displayed and the database.
      */
     async updateFundamentalMetrics() {
         const today = new Date().toISOString().split('T')[0];
-        
+
+        /*
+         * this if the date check.
+         */
         const selectQuery = this.dbManager.db.prepare(
             'SELECT last_fundamental_update, type FROM investments WHERE portfolio_id = ? AND ticker = ?'
         );
-        
+
+        /*
+         * This actually updates the data in the database.
+         */
         const updateQuery = this.dbManager.db.prepare(`
-            UPDATE investments 
-            SET annual_dividend = ?, payout_ratio = ?, roic = ?, last_fundamental_update = ?
+            UPDATE investments
+            SET annual_dividend = ?,
+            fcf_yield = ?,
+            payout_ratio = ?,
+            roic = ?,
+            last_fundamental_update = ?
             WHERE portfolio_id = ? AND ticker = ?
         `);
 
@@ -508,17 +519,19 @@ class Portfolio extends BaseObject {
                         if (data) {
                             updateQuery.run(
                                 data.annualDividend,
+                                data.fcfYield,
                                 data.payoutRatio,
                                 data.roic,
                                 today,
                                 this.portfolioId,
                                 ticker
                             );
-                            
+
                             // Also update the local investment instance properties
                             inv.annualDividend = data.annualDividend;
                             inv.payoutRatio = data.payoutRatio;
                             inv.roic = data.roic;
+                            inv.fcfYield = data.fcfYield;
                             this.log(`Stock fundamentals updated for ${ticker}.`);
                         }
                     } else if (type === 'ETF') {
@@ -526,13 +539,14 @@ class Portfolio extends BaseObject {
                         const annualDividend = await this.marketData.getETFFundamentals(ticker);
                         updateQuery.run(
                             annualDividend,
+                            null, // ETF FCF yield set to null
                             null, // ETF payout ratio set to null
                             null, // ETF ROIC set to null
                             today,
                             this.portfolioId,
                             ticker
                         );
-                        
+
                         inv.annualDividend = annualDividend;
                         inv.payoutRatio = null;
                         inv.roic = null;

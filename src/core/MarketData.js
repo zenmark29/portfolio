@@ -21,7 +21,7 @@ class MarketData extends BaseObject {
     /**
      * Fetches the previous daily open/close for a single ticker.
      * Polygon.io's rest.stocks.dailyOpenClose handles this.
-     * @param {string} ticker 
+     * @param {string} ticker
      * @param {string} date - Format: YYYY-MM-DD
      * @returns {Promise<number>} - Best representation of the EOD price (close price).
      */
@@ -44,20 +44,20 @@ class MarketData extends BaseObject {
     static getPreviousBusinessDay() {
         const date = new Date();
         const dayOfWeek = date.getDay();
-        
+
         let daysToSubtract = 1;
         if (dayOfWeek === 0) { // Sunday
             daysToSubtract = 2;
         } else if (dayOfWeek === 1) { // Monday
             daysToSubtract = 3;
         }
-        
+
         date.setDate(date.getDate() - daysToSubtract);
         return date.toISOString().split('T')[0];
     }
     /**
      * Fetches details for a given asset ticker (e.g., name).
-     * @param {string} ticker 
+     * @param {string} ticker
      * @returns {Promise<string|null>} - The name of the asset, or null if not found.
      */
     async getAssetDetails(ticker) {
@@ -87,13 +87,16 @@ class MarketData extends BaseObject {
             };
 
             const dividendPerShare = parseVal(payload.DividendPerShare);
-            const payoutRatio = parseVal(payload.PayoutRatio);
-            const roic = parseVal(payload.ReturnOnInvestedCapitalTTM);
-
+            const eps = parseVal(payload.EPS);
+            const payoutRatio = dividendPerShare / eps || 0; // Avoid division by zero
+            const roic = parseVal(payload.ReturnOnEquityTTM);
+            const operatingMargin = parseVal(payload.OperatingMarginTTM);
             return {
                 annualDividend: dividendPerShare,
+                fcfYield: operatingMargin,
                 payoutRatio: payoutRatio,
-                roic: roic
+                roic: roic,
+                operatingMargin: operatingMargin
             };
         } catch (error) {
             this.handleError('getStockFundamentals', new Error(`Failed to fetch Stock fundamentals for ${ticker}: ${error.message}`));
