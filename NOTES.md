@@ -1,2 +1,3 @@
 - add the estimated forward cash flow to the grid and calculate it: holdings * annual payback
-- importing the data from etrade is erasing the updates I make locally. I need to merge the data, not replace it.
+- (FIXED)importing the data from etrade is erasing the updates I make locally. I need to merge the data, not replace it.
+- add the ability to create and then select a differnt database. Include the ability to switch what database it starts with.
