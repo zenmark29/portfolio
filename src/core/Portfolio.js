@@ -124,19 +124,37 @@ class Portfolio extends BaseObject {
      * @param {string|null} generatedAt
      */
     importHoldings(holdings, generatedAt = null) {
-        const existingTargetMap = new Map(this.investments.map(inv => [inv.ticker, inv.targetPercentage]));
-
+        const existingTargetMap = new Map(this.investments.map(inv => [inv.ticker, inv])); // this is where I need to do the merge between existing investments and the new ones from the CSV,
+        // preserving targets and other details where possible.
         const newInvestments = holdings.map(h => {
-            const ticker = h.ticker.toUpperCase();
-            const rawShares = h.shares;
-            const shares = ticker === 'CASH'
-                ? (Number.isFinite(rawShares) ? rawShares : (Number.isFinite(h.value) ? h.value : 0))
-                : (Number.isFinite(rawShares) ? rawShares : 0);
-            const targetPercentage = existingTargetMap.has(ticker) ? existingTargetMap.get(ticker) : 0;
-            return new Investment(ticker, shares, targetPercentage);
+            if (existingTargetMap.has(h.ticker.toUpperCase())) {
+                console.log(`Existing target for ${h.ticker}: ${existingTargetMap.get(h.ticker.toUpperCase()).ticker}`);
+                const existing = existingTargetMap.get(h.ticker.toUpperCase());
+                existing.shares = h.shares;
+                // Preserve existing target percentage and other details
+
+                return existing;
+            } else {
+                 console.log(`Importing holding: ${h.ticker}, shares: ${h.shares}, value: ${h.value}, price: ${h.price}`);
+                const newInv = new Investment(
+                    h.ticker.toUpperCase(),
+                    h.shares,
+                    0, // default target percentage, user can adjust later
+                    null, // name will be fetched later if missing
+                    null, // type unknown at this point
+                    null, // macro category unknown at this point
+                    null, // fcf yield unknown at this point
+                    null, // payout ratio unknown at this point
+                    null, // roic unknown at this point
+                    null  // annual dividend unknown at this point
+                );
+                existingTargetMap.set(h.ticker.toUpperCase(), newInv);
+                return newInv;
+            }
         });
 
-        this.setInvestments(newInvestments);
+
+        this.setInvestments(newInvestments);// I don't need this if I set them in place.
         this.saveInvestments();
 
         const priceMap = {};
