@@ -9,7 +9,7 @@ class Investment extends BaseObject {
      * @param {string|null} type - Asset type classification
      * @param {string|null} macroCategory - Macro category classification
      */
-    constructor(ticker, shares = 0, targetPercentage = 0, name = null, type = null, macroCategory = null, fcfYield = null, payoutRatio = null, roic = null, annualDividend = null) {
+    constructor(ticker, shares = 0, targetPercentage = 0, name = null, type = null, macroCategory = null, fcfYield = null, payoutRatio = null, roic = null, annualDividend = 0) {
         super();
         this.ticker = ticker;
         this.shares = shares;
@@ -21,6 +21,7 @@ class Investment extends BaseObject {
         this.payoutRatio = payoutRatio;
         this.roic = roic;
         this.annualDividend = annualDividend;
+        this.estimated_forward_cashflow = shares * annualDividend; // Estimated forward cash flow based on current shares and annual dividend
     }
 
     /**
