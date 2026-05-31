@@ -17,3 +17,6 @@
     - for tax purposes, what is my estimated income for the current year and the next year
     - for portfolio purposes, given current market conditions as stable, which is highly unlikely, what will my portfolio return in 1, 2, and 3 years
     - look at Monte Carlo modeling for the given portfolio and it's portions
+- Likely need to rethink the menu at some point
+- Look into github actions
+    - can I use github actions to package the application?
