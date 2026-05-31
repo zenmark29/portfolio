@@ -1,3 +1,6 @@
+- general code cleanup
+    - remove unused code
+    - clean up database creation
 - add the ability to enter the cash amount returned for VSUXX as I don't have a way to pull that yet.
 - refactor the investment class to make it an actual OO class
     - add setters and getters
