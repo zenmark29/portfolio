@@ -62,6 +62,20 @@ test('MarketData logic and mocking', async () => {
                     ReturnOnInvestedCapitalTTM: 'abc'
                 };
             }
+            if (params.symbol === 'FALLBACK_TEST') {
+                return {
+                    DividendPerShare: '3.50',
+                    EPS: '7.00',
+                    ReturnOnEquityTTM: '0.18'
+                };
+            }
+            if (params.symbol === 'FALLBACK_ZERO_TEST') {
+                return {
+                    DividendPerShare: '0.00',
+                    EPS: '0.00',
+                    ReturnOnEquityTTM: '0.18'
+                };
+            }
             return {
                 DividendPerShare: '3.50',
                 PayoutRatio: '0.45',
@@ -78,15 +92,37 @@ test('MarketData logic and mocking', async () => {
     const stockData = await md.getStockFundamentals('AAPL');
     assert.deepStrictEqual(stockData, {
         annualDividend: 3.50,
+        fcfYield: 0,
         payoutRatio: 0.45,
-        roic: 0.18
+        roic: 0.18,
+        operatingMargin: 0
     });
 
     const stockDataNone = await md.getStockFundamentals('NONE_TEST');
     assert.deepStrictEqual(stockDataNone, {
         annualDividend: 0,
+        fcfYield: 0,
         payoutRatio: 0,
-        roic: 0
+        roic: 0,
+        operatingMargin: 0
+    });
+
+    const stockDataFallback = await md.getStockFundamentals('FALLBACK_TEST');
+    assert.deepStrictEqual(stockDataFallback, {
+        annualDividend: 3.50,
+        fcfYield: 0,
+        payoutRatio: 0.50,
+        roic: 0.18,
+        operatingMargin: 0
+    });
+
+    const stockDataFallbackZero = await md.getStockFundamentals('FALLBACK_ZERO_TEST');
+    assert.deepStrictEqual(stockDataFallbackZero, {
+        annualDividend: 0,
+        fcfYield: 0,
+        payoutRatio: 0,
+        roic: 0.18,
+        operatingMargin: 0
     });
 
     await assert.rejects(async () => {

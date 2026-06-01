@@ -130,6 +130,7 @@
                                 <th>Payback Ratio</th>
                                 <th>ROIC</th>
                                 <th>DPS or TTM Dividend</th>
+                                <th>Est. Forward Cash Flow</th>
                                 <th>Alloc. (Target/Actual)</th>
                                 <th>Rebalance Math</th>
                                 <th></th>
@@ -138,6 +139,15 @@
                         <tbody id="investmentsList">
                             <!-- Rows injected by app.js -->
                         </tbody>
+                        <tfoot>
+                            <tr class="total-row" style="border-top: 2px solid var(--border-color); background: rgba(255,255,255,0.02); font-weight: 600;">
+                                <td colspan="3" style="text-align: left; padding: 1rem 0.75rem;">Total / Portfolio Summary</td>
+                                <td id="totalValueCell" style="padding: 1rem 0.5rem; font-variant-numeric: tabular-nums;">$0.00</td>
+                                <td colspan="6" style="padding: 1rem 0.5rem;"></td>
+                                <td id="totalEstForwardCashflowCell" style="padding: 1rem 0.5rem; font-variant-numeric: tabular-nums;">$0.00</td>
+                                <td id="totalTargetAllocationCell" colspan="3" style="padding: 1rem 0.5rem; color: var(--text-secondary);">Target Sum: 0.00%</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </section>

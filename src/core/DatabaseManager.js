@@ -22,11 +22,26 @@ class DatabaseManager extends BaseObject {
         this._runV3Schema();
         this._runV4Schema();
         this._runV5Schema();
+        this._runV6Schema();
 
         // Ensure at least one default portfolio exists for fresh databases
         const count = this.db.prepare('SELECT count(*) as count FROM portfolios').get();
         if (count.count === 0) {
             this.db.prepare("INSERT INTO portfolios (name) VALUES ('Default Portfolio')").run();
+        }
+    }
+
+    _runV6Schema() {
+        try {
+            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='estimated_forward_cashflow'").get().count > 0;
+            if (!columnExists) {
+                this.db.exec(`
+                    ALTER TABLE investments ADD COLUMN estimated_forward_cashflow REAL;
+                `);
+                this.log("Schema verified/initialized (V6 - added estimated_forward_cashflow column).");
+            }
+        } catch (e) {
+            this.handleError('Schema V6', e);
         }
     }
 

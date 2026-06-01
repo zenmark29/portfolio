@@ -28,7 +28,7 @@ class Portfolio extends BaseObject {
      * Loads investments and latest prices from the database for this specific portfolio.
      */
     loadInvestments() {
-        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name, type, macro_category, fcf_yield, payout_ratio, roic, annual_dividend FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
+        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name, type, macro_category, fcf_yield, payout_ratio, roic, annual_dividend, estimated_forward_cashflow FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
         this.investments = rows.map(r => new Investment(
             r.ticker,
             r.shares,
@@ -39,7 +39,8 @@ class Portfolio extends BaseObject {
             r.fcf_yield,
             r.payout_ratio,
             r.roic,
-            r.annual_dividend
+            r.annual_dividend,
+            r.estimated_forward_cashflow
         ));
 
         const hasCash = this.investments.some(inv => inv.ticker === 'CASH');
@@ -72,7 +73,7 @@ class Portfolio extends BaseObject {
      */
     saveInvestments() {
         const insert = this.dbManager.db.prepare(
-            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage, name, type, macro_category, fcf_yield, payout_ratio, roic, annual_dividend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage, name=COALESCE(excluded.name, investments.name), type=excluded.type, macro_category=excluded.macro_category, fcf_yield=excluded.fcf_yield, payout_ratio=excluded.payout_ratio, roic=excluded.roic, annual_dividend=excluded.annual_dividend'
+            'INSERT INTO investments (portfolio_id, ticker, shares, target_percentage, name, type, macro_category, fcf_yield, payout_ratio, roic, annual_dividend, estimated_forward_cashflow) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(portfolio_id, ticker) DO UPDATE SET shares=excluded.shares, target_percentage=excluded.target_percentage, name=COALESCE(excluded.name, investments.name), type=excluded.type, macro_category=excluded.macro_category, fcf_yield=excluded.fcf_yield, payout_ratio=excluded.payout_ratio, roic=excluded.roic, annual_dividend=excluded.annual_dividend, estimated_forward_cashflow=excluded.estimated_forward_cashflow'
         );
 
         const transaction = this.dbManager.db.transaction((investments) => {
@@ -88,7 +89,8 @@ class Portfolio extends BaseObject {
                     inv.fcfYield,
                     inv.payoutRatio,
                     inv.roic,
-                    inv.annualDividend
+                    inv.annualDividend,
+                    inv.estimatedForwardCashflow
                 );
             }
         });
@@ -124,21 +126,33 @@ class Portfolio extends BaseObject {
      * @param {string|null} generatedAt
      */
     importHoldings(holdings, generatedAt = null) {
-        const existingTargetMap = new Map(this.investments.map(inv => [inv.ticker, inv])); // this is where I need to do the merge between existing investments and the new ones from the CSV,
+        const existingTargetMap = new Map(this.investments.map(inv => [inv.ticker.toUpperCase(), inv])); // this is where I need to do the merge between existing investments and the new ones from the CSV,
         // preserving targets and other details where possible.
         const newInvestments = holdings.map(h => {
-            if (existingTargetMap.has(h.ticker.toUpperCase())) {
-                console.log(`Existing target for ${h.ticker}: ${existingTargetMap.get(h.ticker.toUpperCase()).ticker}`);
-                const existing = existingTargetMap.get(h.ticker.toUpperCase());
-                existing.shares = h.shares;
+            const upperTicker = h.ticker.toUpperCase();
+            
+            // Backend validation and normalization for shares to prevent DB null/NaN constraint issues
+            let shares = Number(h.shares);
+            if (Number.isNaN(shares)) {
+                if (upperTicker === 'CASH') {
+                    shares = Number(h.value) || 0;
+                } else {
+                    shares = 0;
+                }
+            }
+
+            if (existingTargetMap.has(upperTicker)) {
+                console.log(`Existing target for ${h.ticker}: ${existingTargetMap.get(upperTicker).ticker}`);
+                const existing = existingTargetMap.get(upperTicker);
+                existing.shares = shares;
                 // Preserve existing target percentage and other details
 
                 return existing;
             } else {
-                 console.log(`Importing holding: ${h.ticker}, shares: ${h.shares}, value: ${h.value}, price: ${h.price}`);
+                 console.log(`Importing holding: ${h.ticker}, shares: ${shares}, value: ${h.value}, price: ${h.price}`);
                 const newInv = new Investment(
-                    h.ticker.toUpperCase(),
-                    h.shares,
+                    upperTicker,
+                    shares,
                     0, // default target percentage, user can adjust later
                     null, // name will be fetched later if missing
                     null, // type unknown at this point
@@ -148,7 +162,7 @@ class Portfolio extends BaseObject {
                     null, // roic unknown at this point
                     null  // annual dividend unknown at this point
                 );
-                existingTargetMap.set(h.ticker.toUpperCase(), newInv);
+                existingTargetMap.set(upperTicker, newInv);
                 return newInv;
             }
         });
@@ -342,6 +356,7 @@ class Portfolio extends BaseObject {
                 payoutRatio: inv.payoutRatio,
                 roic: inv.roic,
                 annualDividend: inv.annualDividend,
+                estimatedForwardCashflow: inv.estimatedForwardCashflow,
                 targetPercentage: inv.targetPercentage,
                 actualPercentage: actualPercentage,
                 differencePercentage: diffPercentage,
@@ -501,6 +516,7 @@ class Portfolio extends BaseObject {
             fcf_yield = ?,
             payout_ratio = ?,
             roic = ?,
+            estimated_forward_cashflow = ?,
             last_fundamental_update = ?
             WHERE portfolio_id = ? AND ticker = ?
         `);
@@ -535,39 +551,42 @@ class Portfolio extends BaseObject {
                         this.log(`Syncing Stock fundamentals for ${ticker}...`);
                         const data = await this.marketData.getStockFundamentals(ticker);
                         if (data) {
-                            updateQuery.run(
-                                data.annualDividend,
-                                data.fcfYield,
-                                data.payoutRatio,
-                                data.roic,
-                                today,
-                                this.portfolioId,
-                                ticker
-                            );
-
                             // Also update the local investment instance properties
                             inv.annualDividend = data.annualDividend;
                             inv.payoutRatio = data.payoutRatio;
                             inv.roic = data.roic;
                             inv.fcfYield = data.fcfYield;
+
+                            updateQuery.run(
+                                data.annualDividend,
+                                data.fcfYield,
+                                data.payoutRatio,
+                                data.roic,
+                                inv.estimatedForwardCashflow,
+                                today,
+                                this.portfolioId,
+                                ticker
+                            );
                             this.log(`Stock fundamentals updated for ${ticker}.`);
                         }
                     } else if (type === 'ETF') {
                         this.log(`Syncing ETF fundamentals for ${ticker}...`);
                         const annualDividend = await this.marketData.getETFFundamentals(ticker);
+                        
+                        inv.annualDividend = annualDividend;
+                        inv.payoutRatio = null;
+                        inv.roic = null;
+
                         updateQuery.run(
                             annualDividend,
                             null, // ETF FCF yield set to null
                             null, // ETF payout ratio set to null
                             null, // ETF ROIC set to null
+                            inv.estimatedForwardCashflow,
                             today,
                             this.portfolioId,
                             ticker
                         );
-
-                        inv.annualDividend = annualDividend;
-                        inv.payoutRatio = null;
-                        inv.roic = null;
                         this.log(`ETF fundamentals updated for ${ticker}.`);
                     }
                 } catch (error) {

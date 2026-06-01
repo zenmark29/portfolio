@@ -88,8 +88,8 @@ class MarketData extends BaseObject {
 
             const dividendPerShare = parseVal(payload.DividendPerShare);
             const eps = parseVal(payload.EPS);
-            const payoutRatio = dividendPerShare / eps || 0; // Avoid division by zero
-            const roic = parseVal(payload.ReturnOnEquityTTM);
+            const payoutRatio = payload.PayoutRatio ? parseVal(payload.PayoutRatio) : (dividendPerShare / eps || 0);
+            const roic = payload.ReturnOnInvestedCapitalTTM ? parseVal(payload.ReturnOnInvestedCapitalTTM) : parseVal(payload.ReturnOnEquityTTM);
             const operatingMargin = parseVal(payload.OperatingMarginTTM);
             return {
                 annualDividend: dividendPerShare,

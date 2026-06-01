@@ -287,6 +287,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const tdAnnualDividend = document.createElement('td');
             tdAnnualDividend.textContent = formatCurrency(inv.annualDividend);
 
+            // Est. Forward Cash Flow cell
+            const tdEstForwardCashflow = document.createElement('td');
+            tdEstForwardCashflow.textContent = formatCurrency(inv.estimatedForwardCashflow);
+
             // Percent cell with target input
             const tdPercent = document.createElement('td');
             tdPercent.className = 'percent-cell';
@@ -346,12 +350,19 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.appendChild(tdPayoutRatio);
             tr.appendChild(tdRoic);
             tr.appendChild(tdAnnualDividend);
+            tr.appendChild(tdEstForwardCashflow);
             tr.appendChild(tdPercent);
             tr.appendChild(tdDiff);
             tr.appendChild(tdActions);
 
             investmentsListEl.appendChild(tr);
         });
+
+        // Update Footer Totals
+        const totalEstForwardCashflow = data.details.reduce((sum, inv) => sum + (inv.estimatedForwardCashflow || 0), 0);
+        document.getElementById('totalEstForwardCashflowCell').textContent = formatCurrency(totalEstForwardCashflow);
+        document.getElementById('totalValueCell').textContent = formatCurrency(data.totalValue);
+        document.getElementById('totalTargetAllocationCell').textContent = 'Target Sum: ' + formatPercent(data.targetPercentageSum);
     };
 
     // Fetch initial state

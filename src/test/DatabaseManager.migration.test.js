@@ -140,3 +140,48 @@ test('V5 migration handles prepare errors by calling handleError', () => {
     dm.handleError = origHandle;
     assert.strictEqual(handled, true);
 });
+
+test('V6 migration adds estimated_forward_cashflow column when missing', () => {
+    const dm = new DatabaseManager(':memory:');
+
+    let execCalled = false;
+    let execSql = null;
+    dm.db = {
+        prepare: (sql) => ({ get: () => ({ count: 0 }) }),
+        exec: (sql) => { execCalled = true; execSql = sql; }
+    };
+
+    const origLog = dm.log;
+    const logs = [];
+    dm.log = (m) => logs.push(m);
+
+    dm._runV6Schema();
+
+    dm.log = origLog;
+
+    assert.strictEqual(execCalled, true);
+    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN estimated_forward_cashflow REAL'));
+    assert.ok(logs.some(l => l.includes('V6 - added estimated_forward_cashflow column')));
+});
+
+test('V6 migration handles prepare errors by calling handleError', () => {
+    const dm = new DatabaseManager(':memory:');
+
+    let handled = false;
+    const origHandle = dm.handleError;
+    dm.handleError = (ctx, err) => {
+        handled = true;
+        assert.strictEqual(ctx, 'Schema V6');
+        assert.ok(err instanceof Error);
+    };
+
+    dm.db = {
+        prepare: () => { throw new Error('boom'); },
+        exec: () => {}
+    };
+
+    dm._runV6Schema();
+
+    dm.handleError = origHandle;
+    assert.strictEqual(handled, true);
+});
