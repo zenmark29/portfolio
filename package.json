@@ -5,9 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test src/test/*.test.js",
-    "start": "node src/core/main.js",
+    "start": "npm audit --audit-level=high; node src/core/main.js",
     "debug": "node --inspect src/core/main.js",
-    "coverage": "c8 npm test"
+    "coverage": "c8 npm test",
+    "//comment": "Run outdated on Friday and make a list of what to update.",
+    "outdated": "npm outdated"
   },
   "repository": {
     "type": "git",
@@ -34,5 +36,10 @@
   },
   "devDependencies": {
     "c8": "^11.0.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.10.0": true,
+    "bufferutil@4.1.0": true,
+    "utf-8-validate@5.0.10": true
   }
 }

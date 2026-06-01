@@ -1,13 +1,13 @@
 - general code cleanup
     - remove unused code
     - clean up database creation
-- add the ability to enter the cash amount returned for VSUXX as I don't have a way to pull that yet.
-- refactor the investment class to make it an actual OO class
+- (NOT NEEDED)add the ability to enter the cash amount returned for VSUXX as I don't have a way to pull that yet.
+- (FIXED)refactor the investment class to make it an actual OO class
     - add setters and getters
     - internalize calculated values
     - update the database to store the calculated values rather than calculate them on display
 - Do a general OO refactor that cleans up the AI mess
-- add the estimated forward cash flow to the grid and calculate it: holdings * annual payback
+- (FIXED)add the estimated forward cash flow to the grid and calculate it: holdings * annual payback
     - the calculations show be inside the investment class
 - (FIXED)importing the data from etrade is erasing the updates I make locally. I need to merge the data, not replace it.
 - add the ability to create and then select a differnt database. Include the ability to switch what database it starts with.
