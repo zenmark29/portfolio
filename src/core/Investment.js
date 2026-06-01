@@ -34,17 +34,17 @@ class Investment extends BaseObject {
         this._name = name;
         this._type = type;
         this._macroCategory = macroCategory;
-        
+
         this._fcfYield = (fcfYield === null || fcfYield === undefined || Number.isNaN(Number(fcfYield))) ? null : Number(fcfYield);
         this._payoutRatio = (payoutRatio === null || payoutRatio === undefined || Number.isNaN(Number(payoutRatio))) ? null : Number(payoutRatio);
         this._roic = (roic === null || roic === undefined || Number.isNaN(Number(roic))) ? null : Number(roic);
         this._annualDividend = (annualDividend === null || annualDividend === undefined || Number.isNaN(Number(annualDividend))) ? null : Number(annualDividend);
 
-        if (estimatedForwardCashflow !== null && estimatedForwardCashflow !== undefined && !Number.isNaN(Number(estimatedForwardCashflow))) {
-            this._estimatedForwardCashflow = Number(estimatedForwardCashflow);
-        } else {
+        // if (estimatedForwardCashflow !== null && estimatedForwardCashflow !== undefined && !Number.isNaN(Number(estimatedForwardCashflow))) {
+        //     this._estimatedForwardCashflow = Number(estimatedForwardCashflow);
+        // } else {
             this._calculateForwardCashflow();
-        }
+        // }
     }
 
     /**
