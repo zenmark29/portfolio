@@ -18,11 +18,8 @@ class DatabaseManager extends BaseObject {
     }
 
     _initializeSchema() {
-        this._runV2Schema();
-        this._runV3Schema();
-        this._runV4Schema();
-        this._runV5Schema();
-        this._runV6Schema();
+        this._runInitialSchema();
+        this._migrateSchema();
 
         // Ensure at least one default portfolio exists for fresh databases
         const count = this.db.prepare('SELECT count(*) as count FROM portfolios').get();
@@ -31,21 +28,7 @@ class DatabaseManager extends BaseObject {
         }
     }
 
-    _runV6Schema() {
-        try {
-            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='estimated_forward_cashflow'").get().count > 0;
-            if (!columnExists) {
-                this.db.exec(`
-                    ALTER TABLE investments ADD COLUMN estimated_forward_cashflow REAL;
-                `);
-                this.log("Schema verified/initialized (V6 - added estimated_forward_cashflow column).");
-            }
-        } catch (e) {
-            this.handleError('Schema V6', e);
-        }
-    }
-
-    _runV2Schema() {
+    _runInitialSchema() {
         const schema = `
             CREATE TABLE IF NOT EXISTS portfolios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +43,14 @@ class DatabaseManager extends BaseObject {
                 name TEXT,
                 shares REAL NOT NULL DEFAULT 0,
                 target_percentage REAL NOT NULL DEFAULT 0,
+                type TEXT,
+                macro_category TEXT,
+                fcf_yield REAL,
+                payout_ratio REAL,
+                roic REAL,
+                annual_dividend REAL,
+                estimated_forward_cashflow REAL,
+                last_fundamental_update TEXT,
                 UNIQUE(portfolio_id, ticker),
                 FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
             );
@@ -92,51 +83,38 @@ class DatabaseManager extends BaseObject {
             );
         `;
         this.db.exec(schema);
-        this.log("Schema verified/initialized (V2).");
-    }
-    _runV3Schema() {
-        try {
-            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='name'").get().count > 0;
-            if (!columnExists) {
-                this.db.exec('ALTER TABLE investments ADD COLUMN name TEXT');
-                this.log("Schema verified/initialized (V3 - added name column).");
-            }
-        } catch (e) {
-            this.handleError('Schema V3', e);
-        }
+        this.log("Initial database schema verified/initialized.");
     }
 
-    _runV4Schema() {
-        try {
-            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='type'").get().count > 0;
-            if (!columnExists) {
-                this.db.exec(`
-                    ALTER TABLE investments ADD COLUMN type TEXT;
-                    ALTER TABLE investments ADD COLUMN macro_category TEXT;
-                    ALTER TABLE investments ADD COLUMN fcf_yield REAL;
-                    ALTER TABLE investments ADD COLUMN payout_ratio REAL;
-                    ALTER TABLE investments ADD COLUMN roic REAL;
-                    ALTER TABLE investments ADD COLUMN annual_dividend REAL;
-                `);
-                this.log("Schema verified/initialized (V4 - added type column).");
-            }
-        } catch (e) {
-            this.handleError('Schema V4', e);
-        }
-    }
+    /**
+     * Unified migration loop to dynamically check and append missing columns.
+     * Keeps backward compatibility for existing databases.
+     */
+    _migrateSchema() {
+        const columns = [
+            { name: 'name', type: 'TEXT' },
+            { name: 'type', type: 'TEXT' },
+            { name: 'macro_category', type: 'TEXT' },
+            { name: 'fcf_yield', type: 'REAL' },
+            { name: 'payout_ratio', type: 'REAL' },
+            { name: 'roic', type: 'REAL' },
+            { name: 'annual_dividend', type: 'REAL' },
+            { name: 'estimated_forward_cashflow', type: 'REAL' },
+            { name: 'last_fundamental_update', type: 'TEXT' }
+        ];
 
-    _runV5Schema() {
-        try {
-            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='last_fundamental_update'").get().count > 0;
-            if (!columnExists) {
-                this.db.exec(`
-                    ALTER TABLE investments ADD COLUMN last_fundamental_update TEXT;
-                `);
-                this.log("Schema verified/initialized (V5 - added last_fundamental_update column).");
+        for (const col of columns) {
+            try {
+                const columnExists = this.db.prepare(`SELECT count(*) as count FROM pragma_table_info('investments') WHERE name='${col.name}'`).get().count > 0;
+                if (!columnExists) {
+                    this.db.exec(`ALTER TABLE investments ADD COLUMN ${col.name} ${col.type}`);
+                    this.log(`Schema migration: Added column ${col.name} to investments table.`);
+                }
+            } catch (e) {
+                this.handleError(`Migration column ${col.name}`, e);
             }
-        } catch (e) {
-            this.handleError('Schema V5', e);
         }
     }
 }
+
 export default DatabaseManager;

@@ -2,15 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert';
 import DatabaseManager from '../core/DatabaseManager.js';
 
-test('V3 migration adds name column when missing', () => {
+test('Unified schema migration loop adds missing columns', () => {
     const dm = new DatabaseManager(':memory:');
 
-    // Replace db with a stub that reports column missing and captures exec
-    let execCalled = false;
-    let execSql = null;
+    // Mock db to report that ALL modern columns are missing
+    let execCalls = [];
     dm.db = {
-        prepare: (sql) => ({ get: () => ({ count: 0 }) }),
-        exec: (sql) => { execCalled = true; execSql = sql; }
+        prepare: (sql) => ({
+            get: () => {
+                // Return count: 0 to simulate missing columns
+                return { count: 0 };
+            }
+        }),
+        exec: (sql) => {
+            execCalls.push(sql);
+        }
     };
 
     // Capture logs
@@ -18,170 +24,62 @@ test('V3 migration adds name column when missing', () => {
     const logs = [];
     dm.log = (m) => logs.push(m);
 
-    dm._runV3Schema();
+    dm._migrateSchema();
 
     dm.log = origLog;
 
-    assert.strictEqual(execCalled, true);
-    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN name'));
-    assert.ok(logs.some(l => l.includes('V3 - added name column')));
+    // We have 9 dynamic migration columns
+    assert.strictEqual(execCalls.length, 9);
+    assert.ok(execCalls.some(sql => sql.includes('ALTER TABLE investments ADD COLUMN name TEXT')));
+    assert.ok(execCalls.some(sql => sql.includes('ALTER TABLE investments ADD COLUMN type TEXT')));
+    assert.ok(execCalls.some(sql => sql.includes('ALTER TABLE investments ADD COLUMN estimated_forward_cashflow REAL')));
+    assert.ok(logs.some(l => l.includes('Schema migration: Added column name')));
 });
 
-test('V3 migration handles prepare errors by calling handleError', () => {
-    const dm = new DatabaseManager(':memory:');
-
-    let handled = false;
-    const origHandle = dm.handleError;
-    dm.handleError = (ctx, err) => {
-        handled = true;
-        assert.strictEqual(ctx, 'Schema V3');
-        assert.ok(err instanceof Error);
-    };
-
-    dm.db = {
-        prepare: () => { throw new Error('boom'); },
-        exec: () => {}
-    };
-
-    dm._runV3Schema();
-
-    dm.handleError = origHandle;
-    assert.strictEqual(handled, true);
-});
-
-test('V4 migration adds new investment columns when missing', () => {
+test('Unified schema migration loop skips already existing columns', () => {
     const dm = new DatabaseManager(':memory:');
 
     let execCalled = false;
-    let execSql = null;
     dm.db = {
-        prepare: (sql) => ({ get: () => ({ count: 0 }) }),
-        exec: (sql) => { execCalled = true; execSql = sql; }
+        prepare: (sql) => ({
+            get: () => {
+                // Return count: 1 to simulate columns already existing
+                return { count: 1 };
+            }
+        }),
+        exec: (sql) => {
+            execCalled = true;
+        }
     };
 
-    const origLog = dm.log;
-    const logs = [];
-    dm.log = (m) => logs.push(m);
+    dm._migrateSchema();
 
-    dm._runV4Schema();
-
-    dm.log = origLog;
-
-    assert.strictEqual(execCalled, true);
-    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN type TEXT'));
-    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN fcf_yield REAL'));
-    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN annual_dividend REAL'));
-    assert.ok(logs.some(l => l.includes('V4 - added type column')));
+    // No exec calls should be made since all columns already exist
+    assert.strictEqual(execCalled, false);
 });
 
-test('V4 migration handles prepare errors by calling handleError', () => {
+test('Unified schema migration loop handles errors gracefully', () => {
     const dm = new DatabaseManager(':memory:');
 
-    let handled = false;
+    let handledErrors = [];
     const origHandle = dm.handleError;
     dm.handleError = (ctx, err) => {
-        handled = true;
-        assert.strictEqual(ctx, 'Schema V4');
-        assert.ok(err instanceof Error);
+        handledErrors.push({ ctx, message: err.message });
     };
 
     dm.db = {
-        prepare: () => { throw new Error('boom'); },
+        prepare: () => {
+            throw new Error('Database prepare mock failure');
+        },
         exec: () => {}
     };
 
-    dm._runV4Schema();
+    dm._migrateSchema();
 
     dm.handleError = origHandle;
-    assert.strictEqual(handled, true);
-});
-
-test('V5 migration adds last_fundamental_update column when missing', () => {
-    const dm = new DatabaseManager(':memory:');
-
-    let execCalled = false;
-    let execSql = null;
-    dm.db = {
-        prepare: (sql) => ({ get: () => ({ count: 0 }) }),
-        exec: (sql) => { execCalled = true; execSql = sql; }
-    };
-
-    const origLog = dm.log;
-    const logs = [];
-    dm.log = (m) => logs.push(m);
-
-    dm._runV5Schema();
-
-    dm.log = origLog;
-
-    assert.strictEqual(execCalled, true);
-    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN last_fundamental_update TEXT'));
-    assert.ok(logs.some(l => l.includes('V5 - added last_fundamental_update column')));
-});
-
-test('V5 migration handles prepare errors by calling handleError', () => {
-    const dm = new DatabaseManager(':memory:');
-
-    let handled = false;
-    const origHandle = dm.handleError;
-    dm.handleError = (ctx, err) => {
-        handled = true;
-        assert.strictEqual(ctx, 'Schema V5');
-        assert.ok(err instanceof Error);
-    };
-
-    dm.db = {
-        prepare: () => { throw new Error('boom'); },
-        exec: () => {}
-    };
-
-    dm._runV5Schema();
-
-    dm.handleError = origHandle;
-    assert.strictEqual(handled, true);
-});
-
-test('V6 migration adds estimated_forward_cashflow column when missing', () => {
-    const dm = new DatabaseManager(':memory:');
-
-    let execCalled = false;
-    let execSql = null;
-    dm.db = {
-        prepare: (sql) => ({ get: () => ({ count: 0 }) }),
-        exec: (sql) => { execCalled = true; execSql = sql; }
-    };
-
-    const origLog = dm.log;
-    const logs = [];
-    dm.log = (m) => logs.push(m);
-
-    dm._runV6Schema();
-
-    dm.log = origLog;
-
-    assert.strictEqual(execCalled, true);
-    assert.ok(execSql && execSql.includes('ALTER TABLE investments ADD COLUMN estimated_forward_cashflow REAL'));
-    assert.ok(logs.some(l => l.includes('V6 - added estimated_forward_cashflow column')));
-});
-
-test('V6 migration handles prepare errors by calling handleError', () => {
-    const dm = new DatabaseManager(':memory:');
-
-    let handled = false;
-    const origHandle = dm.handleError;
-    dm.handleError = (ctx, err) => {
-        handled = true;
-        assert.strictEqual(ctx, 'Schema V6');
-        assert.ok(err instanceof Error);
-    };
-
-    dm.db = {
-        prepare: () => { throw new Error('boom'); },
-        exec: () => {}
-    };
-
-    dm._runV6Schema();
-
-    dm.handleError = origHandle;
-    assert.strictEqual(handled, true);
+    
+    // We have 9 dynamic columns, each should call handleError when prepare throws
+    assert.strictEqual(handledErrors.length, 9);
+    assert.ok(handledErrors.every(h => h.ctx.startsWith('Migration column ')));
+    assert.ok(handledErrors.every(h => h.message.includes('Database prepare mock failure')));
 });

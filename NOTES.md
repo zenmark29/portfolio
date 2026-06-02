@@ -16,10 +16,10 @@
     - add a new correlation chart that shows different correlation dimensions.
     - change the correlation charts to scatter diagrams
 
-- Other calculations and charts
-    - for tax purposes, what is my estimated income for the current year and the next year
-    - for portfolio purposes, given current market conditions as stable, which is highly unlikely, what will my portfolio return in 1, 2, and 3 years
-    - look at Monte Carlo modeling for the given portfolio and it's portions
+
+- Monte Carlo forecasting - lot's of questions on this.
+
 - Likely need to rethink the menu at some point
+
 - Look into github actions
     - can I use github actions to package the application?

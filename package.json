@@ -25,21 +25,23 @@
   "homepage": "https://github.com/zenmark29/portfolio#readme",
   "dependencies": {
     "@polygon.io/client-js": "^7.3.3",
+    "av_api": "github:zenmark29/av_api#main",
     "better-sqlite3": "^12.8.0",
     "chart.js": "^4.5.1",
     "express": "^4.19.2",
-    "helmet": "^6.0.0",
     "express-rate-limit": "^6.7.0",
+    "helmet": "^6.0.0",
     "winston": "^3.11.0",
-    "winston-daily-rotate-file": "^4.7.1",
-    "av_api": "github:zenmark29/av_api#main"
+    "winston-daily-rotate-file": "^4.7.1"
   },
   "devDependencies": {
+    "@yao-pkg/pkg": "^6.20.0",
     "c8": "^11.0.0"
   },
   "allowScripts": {
     "better-sqlite3@12.10.0": true,
     "bufferutil@4.1.0": true,
-    "utf-8-validate@5.0.10": true
+    "utf-8-validate@5.0.10": true,
+    "esbuild@0.27.7": true
   }
 }
