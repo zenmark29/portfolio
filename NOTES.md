@@ -1,25 +1,9 @@
 - general code cleanup
     - remove unused code
-    - clean up database creation
-- (NOT NEEDED)add the ability to enter the cash amount returned for VSUXX as I don't have a way to pull that yet.
-- (FIXED)refactor the investment class to make it an actual OO class
-    - add setters and getters
-    - internalize calculated values
-    - update the database to store the calculated values rather than calculate them on display
-- Do a general OO refactor that cleans up the AI mess
-- (FIXED)add the estimated forward cash flow to the grid and calculate it: holdings * annual payback
-    - the calculations show be inside the investment class
-- (FIXED)importing the data from etrade is erasing the updates I make locally. I need to merge the data, not replace it.
-- add the ability to create and then select a differnt database. Include the ability to switch what database it starts with.
-    - this is so I can do testing and modeling
+
 - chart updates
-    - add a new correlation chart that shows different correlation dimensions.
     - change the correlation charts to scatter diagrams
-
-
-- Monte Carlo forecasting - lot's of questions on this.
 
 - Likely need to rethink the menu at some point
 
-- Look into github actions
-    - can I use github actions to package the application?
+- RMD distribution - how much to sell of what? Is there a way to handle that?
