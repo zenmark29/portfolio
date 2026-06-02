@@ -312,6 +312,36 @@ input:focus {
     color: white !important;
 }
 
+/* Modal-specific button sizing to keep Upload and Cancel identical */
+#importModal .btn,
+#importModal .btn-primary,
+#importModal .btn-secondary {
+    width: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.45rem 0.9rem !important;
+    height: 36px !important;
+    min-width: 86px !important;
+    border-radius: 0.5rem !important;
+    font-size: 0.95rem !important;
+    line-height: 1 !important;
+}
+
+#importModal .btn-primary {
+    background: var(--primary-gradient) !important;
+    color: white !important;
+    border: 1px solid transparent !important;
+    box-shadow: 0 6px 18px rgba(59,130,246,0.12);
+}
+
+#importModal .btn-secondary {
+    background: var(--primary-gradient) !important;
+    color: white !important;
+    border: 1px solid transparent !important;
+    box-shadow: 0 6px 18px rgba(59,130,246,0.12);
+}
+
 /* Error Banner */
 .error-banner {
     background: var(--danger-bg);

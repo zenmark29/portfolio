@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const updatePricesBtn = document.getElementById('updatePricesBtn');
     const importFileInput = document.getElementById('portfolioImportFile');
     const importPortfolioBtn = document.getElementById('btnImportPortfolio');
+    const importModal = document.getElementById('importModal');
+    const confirmImportBtn = document.getElementById('confirmImportBtn');
+    const cancelImportBtn = document.getElementById('cancelImportBtn');
+    const closeImportModalBtn = document.getElementById('closeImportModal');
     const addBtn = document.getElementById('addBtn');
     const errorBanner = document.getElementById('errorBanner');
 
@@ -163,20 +167,40 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        importPortfolioBtn.disabled = true;
-        importPortfolioBtn.textContent = 'Importing...';
+        // Use modal's upload button state while importing
+        if (confirmImportBtn) {
+            confirmImportBtn.disabled = true;
+            const originalConfirmText = confirmImportBtn.textContent;
+            confirmImportBtn.textContent = 'Importing...';
 
-        try {
-            const data = await importPortfolioFromCsv(file);
-            renderPortfolio(data);
-            fetchHistory(true);
-            fetchCorrelation(true);
-        } catch (err) {
-            showError(err.message || 'Failed to import portfolio CSV.');
-        } finally {
-            importPortfolioBtn.disabled = false;
-            importPortfolioBtn.textContent = 'Import CSV';
+            try {
+                const data = await importPortfolioFromCsv(file);
+                renderPortfolio(data);
+                fetchHistory(true);
+                fetchCorrelation(true);
+                hideImportModal();
+                return true;
+            } catch (err) {
+                showError(err.message || 'Failed to import portfolio CSV.');
+                return false;
+            } finally {
+                confirmImportBtn.disabled = false;
+                confirmImportBtn.textContent = originalConfirmText;
+            }
         }
+    };
+
+    const showImportModal = () => {
+        if (!importModal) return;
+        importModal.style.display = 'flex';
+        // focus file input after render
+        setTimeout(() => { importFileInput?.focus(); }, 50);
+    };
+
+    const hideImportModal = () => {
+        if (!importModal) return;
+        importModal.style.display = 'none';
+        if (importFileInput) importFileInput.value = '';
     };
 
     // Render Data to UI
@@ -1036,11 +1060,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    importPortfolioBtn.addEventListener('click', async () => {
-        if (!currentPortfolioId) return;
+    // Open import modal when header button clicked
+    importPortfolioBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         clearError();
-        await handlePortfolioImport();
+        showImportModal();
     });
+
+    // Modal: confirm upload
+    if (confirmImportBtn) {
+        confirmImportBtn.addEventListener('click', async () => {
+            clearError();
+            await handlePortfolioImport();
+        });
+    }
+
+    // Modal: cancel/close
+    if (cancelImportBtn) cancelImportBtn.addEventListener('click', () => { hideImportModal(); });
+    if (closeImportModalBtn) closeImportModalBtn.addEventListener('click', () => { hideImportModal(); });
 
     // Editable Grid Handlers
     investmentsListEl.addEventListener('change', async (e) => {
