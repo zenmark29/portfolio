@@ -185,9 +185,16 @@ app.post('/api/portfolios/:id/import', async (req, res) => {
         const portfolio = getPortfolio(req.params.id);
         const { holdings, generatedAt } = req.body;
 
+
+
         if (!Array.isArray(holdings) || holdings.length === 0) {
             return res.status(400).json({ success: false, error: 'Holdings array is required for import.' });
         }
+
+    const index = holdings.findIndex(inv => inv.ticker === 'CASH');
+    if (index > -1) {
+        holdings.unshift(holdings.splice(index, 1)[0]);
+    }
 
         portfolio.importHoldings(holdings, generatedAt || null);
         await portfolio.ensureAssetNames();
