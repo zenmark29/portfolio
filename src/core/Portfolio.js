@@ -126,11 +126,10 @@ class Portfolio extends BaseObject {
      * @param {string|null} generatedAt
      */
     importHoldings(holdings, generatedAt = null) {
-        const existingTargetMap = new Map(this.investments.map(inv => [inv.ticker.toUpperCase(), inv])); // this is where I need to do the merge between existing investments and the new ones from the CSV,
-        // preserving targets and other details where possible.
+        const existingTargetMap = new Map(this.investments.map(inv => [inv.ticker.toUpperCase(), inv]));
         const newInvestments = holdings.map(h => {
             const upperTicker = h.ticker.toUpperCase();
-            
+
             // Backend validation and normalization for shares to prevent DB null/NaN constraint issues
             let shares = Number(h.shares);
             if (Number.isNaN(shares)) {
@@ -145,9 +144,8 @@ class Portfolio extends BaseObject {
                 console.log(`Existing target for ${h.ticker}: ${existingTargetMap.get(upperTicker).ticker}`);
                 const existing = existingTargetMap.get(upperTicker);
                 existing.shares = shares;
-                // Preserve existing target percentage and other details
 
-                return existing;
+                return existing; //just updates it if it already exists
             } else {
                  console.log(`Importing holding: ${h.ticker}, shares: ${shares}, value: ${h.value}, price: ${h.price}`);
                 const newInv = new Investment(
@@ -572,7 +570,7 @@ class Portfolio extends BaseObject {
                     } else if (type === 'ETF') {
                         this.log(`Syncing ETF fundamentals for ${ticker}...`);
                         const annualDividend = await this.marketData.getETFFundamentals(ticker);
-                        
+
                         inv.annualDividend = annualDividend;
                         inv.payoutRatio = null;
                         inv.roic = null;
