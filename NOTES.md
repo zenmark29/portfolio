@@ -1,3 +1,6 @@
+- add import for QFX files that can scrub and import bank data
+- add a summary page that shows the complete picture
+
 - general code cleanup
     - remove unused code
 
