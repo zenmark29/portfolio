@@ -1,5 +1,5 @@
-- add import for QFX files that can scrub and import bank data
-- add a summary page that shows the complete picture
+- NEXT: add import for QFX files that can scrub and import bank data
+- add a summary page that shows the complete picture of all portfolios
 
 - general code cleanup
     - remove unused code
