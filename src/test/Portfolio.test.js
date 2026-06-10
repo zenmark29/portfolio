@@ -443,6 +443,7 @@ test('Portfolio ensureAssetNames fetches missing names and handles errors', asyn
         new Investment('AAPL', 10, 0.5, null),
         new Investment('MSFT', 10, 0.5, 'Microsoft Corp.'), // Already has name
         new Investment('CASH', 100, 0, null),
+        new Investment('SAVINGS', 100, 0, null), // SAVINGS with null name
         new Investment('FUNXX', 100, 0, null), // 5 char ending in XX
         new Investment('ERROR', 5, 0, null)
     ]);
@@ -453,6 +454,7 @@ test('Portfolio ensureAssetNames fetches missing names and handles errors', asyn
     assert.strictEqual(portfolio.investments.find(i => i.ticker === 'AAPL').name, 'Apple Inc.');
     assert.strictEqual(portfolio.investments.find(i => i.ticker === 'MSFT').name, 'Microsoft Corp.');
     assert.strictEqual(portfolio.investments.find(i => i.ticker === 'CASH').name, 'Cash');
+    assert.strictEqual(portfolio.investments.find(i => i.ticker === 'SAVINGS').name, 'Savings Account');
     assert.strictEqual(portfolio.investments.find(i => i.ticker === 'FUNXX').name, 'Money Market Fund');
     assert.strictEqual(portfolio.investments.find(i => i.ticker === 'ERROR').name, null); // Failed
 
@@ -673,3 +675,147 @@ test('Portfolio updateFundamentalMetrics edge cases for coverage', async () => {
     const noTypeRow = dbm.db.prepare("SELECT last_fundamental_update FROM investments WHERE ticker = 'NOTYPE'").get();
     assert.strictEqual(noTypeRow.last_fundamental_update, null);
 });
+
+test('Portfolio SAVINGS type initialization and protection', () => {
+    const dbm = new DatabaseManager(':memory:');
+    
+    // Insert a portfolio with type 'SAVINGS'
+    dbm.db.prepare("INSERT INTO portfolios (name, type) VALUES ('My Savings', 'SAVINGS')").run();
+    const pRow = dbm.db.prepare("SELECT id FROM portfolios WHERE name = 'My Savings'").get();
+
+    const portfolio = new Portfolio(pRow.id, dbm, null);
+    portfolio.loadInvestments();
+
+    assert.strictEqual(portfolio.type, 'SAVINGS');
+    assert.strictEqual(portfolio.name, 'My Savings');
+    
+    // Should have exactly 1 investment: SAVINGS
+    assert.strictEqual(portfolio.investments.length, 1);
+    const savings = portfolio.investments[0];
+    assert.strictEqual(savings.ticker, 'SAVINGS');
+    assert.strictEqual(savings.name, 'Savings Account');
+    assert.strictEqual(savings.targetPercentage, 1.0);
+
+    // Test deletion protection
+    portfolio.deleteInvestment('SAVINGS');
+    assert.strictEqual(portfolio.investments.length, 1);
+    assert.strictEqual(portfolio.investments[0].ticker, 'SAVINGS');
+});
+
+test('Portfolio SAVINGS latest price, status, and correlation matrix', () => {
+    const dbm = new DatabaseManager(':memory:');
+    dbm.db.prepare("INSERT INTO portfolios (name, type) VALUES ('My Savings', 'SAVINGS')").run();
+    const pRow = dbm.db.prepare("SELECT id FROM portfolios WHERE name = 'My Savings'").get();
+
+    const portfolio = new Portfolio(pRow.id, dbm, null);
+    portfolio.loadInvestments();
+
+    // Verify latest price is always 1.0
+    assert.strictEqual(portfolio._getLatestPrice('SAVINGS'), 1.0);
+
+    // Set shares/balance
+    portfolio.investments[0].shares = 5000;
+    portfolio.saveInvestments();
+
+    // Verify status calculations
+    const status = portfolio.getPortfolioStatus();
+    assert.strictEqual(status.totalValue, 5000);
+    assert.strictEqual(status.details.length, 1);
+    assert.strictEqual(status.details[0].ticker, 'SAVINGS');
+    assert.strictEqual(status.details[0].shares, 5000);
+    assert.strictEqual(status.details[0].value, 5000);
+    assert.strictEqual(status.details[0].actualPercentage, 1.0);
+    assert.strictEqual(status.details[0].differencePercentage, 0.0);
+
+    // Verify correlation matrix returns empty results
+    const corr = portfolio.getCorrelationMatrix();
+    assert.deepStrictEqual(corr.tickers, []);
+    assert.deepStrictEqual(corr.matrix, {});
+});
+
+test('Portfolio SAVINGS importQfx updates holding and saves snapshot', () => {
+    const dbm = new DatabaseManager(':memory:');
+    dbm.db.prepare("INSERT INTO portfolios (name, type) VALUES ('My Savings', 'SAVINGS')").run();
+    const pRow = dbm.db.prepare("SELECT id FROM portfolios WHERE name = 'My Savings'").get();
+
+    const portfolio = new Portfolio(pRow.id, dbm, null);
+    portfolio.loadInvestments();
+
+    const qfxText = `
+        <ORG>Chase
+        <ACCTID>987654
+        <BALAMT>15420.50
+        <DTASOF>20260608
+    `;
+
+    portfolio.importQfx(qfxText);
+
+    assert.strictEqual(portfolio.investments[0].shares, 15420.50);
+    assert.strictEqual(portfolio.investments[0].name, 'Chase (987654)');
+
+    // Verify history snapshot was saved
+    const history = dbm.db.prepare("SELECT * FROM portfolio_history WHERE portfolio_id = ? AND date = ?").get(pRow.id, '2026-06-08');
+    assert.ok(history);
+    assert.strictEqual(history.total_value, 15420.50);
+
+    const historyItems = dbm.db.prepare("SELECT * FROM portfolio_history_items WHERE history_id = ?").all(history.id);
+    assert.strictEqual(historyItems.length, 1);
+    assert.strictEqual(historyItems[0].ticker, 'SAVINGS');
+    assert.strictEqual(historyItems[0].shares, 15420.50);
+    assert.strictEqual(historyItems[0].price, 1.0);
+});
+
+test('Portfolio importQfx throws error on non-SAVINGS portfolios', () => {
+    const dbm = new DatabaseManager(':memory:');
+    const portfolio = new Portfolio(1, dbm, null);
+    portfolio.loadInvestments(); // Defaults to INVESTMENT type
+
+    assert.throws(() => {
+        portfolio.importQfx('<BALAMT>5000');
+    }, /Only an account with Type of SAVINGS can import QFX files\./);
+});
+
+test('Portfolio SAVINGS importQfx creates new SAVINGS investment if none exists', () => {
+    const dbm = new DatabaseManager(':memory:');
+    dbm.db.prepare("INSERT INTO portfolios (name, type) VALUES ('My Savings', 'SAVINGS')").run();
+    const pRow = dbm.db.prepare("SELECT id FROM portfolios WHERE name = 'My Savings'").get();
+
+    const portfolio = new Portfolio(pRow.id, dbm, null);
+    portfolio.type = 'SAVINGS'; // Manually set type without loading investments
+    portfolio.setInvestments([]); // Clear investments
+
+    const qfxText = `
+        <BALAMT>1500
+        <DTASOF>20260608
+    `;
+    portfolio.importQfx(qfxText);
+
+    assert.strictEqual(portfolio.investments.length, 1);
+    assert.strictEqual(portfolio.investments[0].ticker, 'SAVINGS');
+    assert.strictEqual(portfolio.investments[0].shares, 1500);
+});
+
+test('Portfolio loadInvestments handles non-existent portfolio metadata fallback', () => {
+    const dbm = new DatabaseManager(':memory:');
+    // Portfolio 1 (Default Portfolio) exists in dbm on schema initialization,
+    // but we mock the metadata query to return undefined to test fallback values.
+    const originalPrepare = dbm.db.prepare;
+    dbm.db.prepare = (sql) => {
+        const stmt = originalPrepare.call(dbm.db, sql);
+        if (sql.includes('SELECT name, type FROM portfolios WHERE id = ?')) {
+            return {
+                get: () => undefined
+            };
+        }
+        return stmt;
+    };
+
+    const portfolio = new Portfolio(1, dbm, null);
+    portfolio.loadInvestments();
+
+    assert.strictEqual(portfolio.name, '');
+    assert.strictEqual(portfolio.type, 'INVESTMENT');
+
+    dbm.db.prepare = originalPrepare;
+});
+

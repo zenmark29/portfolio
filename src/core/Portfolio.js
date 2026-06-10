@@ -2,6 +2,7 @@ import BaseObject from './BaseObject.js';
 import Investment from './Investment.js';
 import DatabaseManager from './DatabaseManager.js';
 import MarketData from './MarketData.js';
+import QfxParser from './QfxParser.js';
 
 class Portfolio extends BaseObject {
     /**
@@ -28,7 +29,16 @@ class Portfolio extends BaseObject {
      * Loads investments and latest prices from the database for this specific portfolio.
      */
     loadInvestments() {
-        const rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name, type, macro_category, fcf_yield, payout_ratio, roic, annual_dividend, estimated_forward_cashflow FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
+        const meta = this.dbManager.db.prepare('SELECT name, type FROM portfolios WHERE id = ?').get(this.portfolioId);
+        this.name = meta ? meta.name : '';
+        this.type = meta ? meta.type : 'INVESTMENT';
+
+        let rows = this.dbManager.db.prepare('SELECT id, ticker, shares, target_percentage, name, type, macro_category, fcf_yield, payout_ratio, roic, annual_dividend, estimated_forward_cashflow FROM investments WHERE portfolio_id = ? ORDER BY id ASC').all(this.portfolioId);
+
+        if (this.type === 'SAVINGS') {
+            rows = rows.filter(r => r.ticker !== 'CASH');
+        }
+
         this.investments = rows.map(r => new Investment(
             r.ticker,
             r.shares,
@@ -43,11 +53,20 @@ class Portfolio extends BaseObject {
             r.estimated_forward_cashflow
         ));
 
-        const hasCash = this.investments.some(inv => inv.ticker === 'CASH');
-        if (!hasCash) {
-            const cashInv = new Investment('CASH', 0, 0, 'Cash');
-            this.investments.unshift(cashInv);
-            this.saveInvestments();
+        if (this.type === 'SAVINGS') {
+            const hasSavings = this.investments.some(inv => inv.ticker === 'SAVINGS');
+            if (!hasSavings) {
+                const savingsInv = new Investment('SAVINGS', 0, 1.0, 'Savings Account', 'Savings', 'Savings');
+                this.investments.unshift(savingsInv);
+                this.saveInvestments();
+            }
+        } else {
+            const hasCash = this.investments.some(inv => inv.ticker === 'CASH');
+            if (!hasCash) {
+                const cashInv = new Investment('CASH', 0, 0, 'Cash');
+                this.investments.unshift(cashInv);
+                this.saveInvestments();
+            }
         }
     }
 
@@ -56,7 +75,7 @@ class Portfolio extends BaseObject {
      * @param {string} ticker
      */
     deleteInvestment(ticker) {
-        if (ticker === 'CASH') return; // Protected structural asset
+        if (ticker === 'CASH' || ticker === 'SAVINGS') return; // Protected structural asset
         this.investments = this.investments.filter(inv => inv.ticker !== ticker);
         this.dbManager.db.prepare('DELETE FROM investments WHERE portfolio_id = ? AND ticker = ?').run(this.portfolioId, ticker);
         // Also delete from history items for this portfolio and ticker
@@ -203,9 +222,9 @@ class Portfolio extends BaseObject {
         let fetchCount = 0;
 
         for (const inv of this.investments) {
-            if (inv.ticker === 'CASH' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) {
+            if (inv.ticker === 'CASH' || inv.ticker === 'SAVINGS' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) {
                 if (!inv.name) {
-                    inv.name = inv.ticker === 'CASH' ? 'Cash' : 'Money Market Fund';
+                    inv.name = inv.ticker === 'CASH' ? 'Cash' : (inv.ticker === 'SAVINGS' ? 'Savings Account' : 'Money Market Fund');
                     updateName.run(inv.name, this.portfolioId, inv.ticker);
                 }
                 continue;
@@ -242,7 +261,7 @@ class Portfolio extends BaseObject {
             'SELECT price FROM prices WHERE ticker = ? AND date = ?'
         );
         for (const inv of this.investments) {
-            if (inv.ticker === 'CASH' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) continue;
+            if (inv.ticker === 'CASH' || inv.ticker === 'SAVINGS' || (inv.ticker.length === 5 && inv.ticker.endsWith('XX'))) continue;
 
             const existing = checkPrice.get(inv.ticker, date);
             if (existing !== undefined) {
@@ -312,7 +331,7 @@ class Portfolio extends BaseObject {
      * Helper to get the most recent price from the DB for a ticker
      */
     _getLatestPrice(ticker) {
-        if (ticker === 'CASH' || (ticker.length === 5 && ticker.endsWith('XX'))) return 1.0;
+        if (ticker === 'CASH' || ticker === 'SAVINGS' || (ticker.length === 5 && ticker.endsWith('XX'))) return 1.0;
 
         const row = this.dbManager.db.prepare(
             'SELECT price FROM prices WHERE ticker = ? ORDER BY date DESC LIMIT 1'
@@ -462,9 +481,13 @@ class Portfolio extends BaseObject {
      * @returns {Object} { tickers: string[], matrix: Record<string, Record<string, number|null>> }
      */
     getCorrelationMatrix() {
+        if (this.type === 'SAVINGS') {
+            return { tickers: [], matrix: {} };
+        }
+
         const activeTickers = this.investments
             .map(inv => inv.ticker)
-            .filter(ticker => ticker !== 'CASH' && !(ticker.length === 5 && ticker.endsWith('XX')));
+            .filter(ticker => ticker !== 'CASH' && ticker !== 'SAVINGS' && !(ticker.length === 5 && ticker.endsWith('XX')));
 
         const tickers = [...new Set(activeTickers)].sort();
         const matrix = {};
@@ -594,6 +617,32 @@ class Portfolio extends BaseObject {
                 this.log(`Fundamentals for ${ticker} are up to date (last update: ${lastUpdate}). Skipping sync.`);
             }
         }
+    }
+
+    /**
+     * Imports savings portfolio balance and name from QFX text.
+     * @param {string} qfxText
+     */
+    importQfx(qfxText) {
+        if (this.type !== 'SAVINGS') {
+            throw new Error('Only an account with Type of SAVINGS can import QFX files.');
+        }
+
+        const parsed = QfxParser.parse(qfxText);
+
+        let savingsInv = this.investments.find(inv => inv.ticker === 'SAVINGS');
+        if (!savingsInv) {
+            savingsInv = new Investment('SAVINGS', parsed.balance, 1.0, parsed.name, 'Savings', 'Savings');
+            this.investments.push(savingsInv);
+        } else {
+            savingsInv.shares = parsed.balance;
+            savingsInv.name = parsed.name;
+        }
+
+        this.saveInvestments();
+
+        const snapshotDate = parsed.date;
+        this.takeSnapshot(snapshotDate);
     }
 }
 

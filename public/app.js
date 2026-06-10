@@ -14,6 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const addBtn = document.getElementById('addBtn');
     const errorBanner = document.getElementById('errorBanner');
 
+    //importModal Elements
+    const importModalTitle = document.getElementById('importModalTitle');
+    const importModalDesc = document.getElementById('importModalDesc');
+    const defaultCSVTitle = 'Import Portfolio from CSV';
+    const defaultCSVDescription = 'Select the CSV exported from your broker and click Upload.';
+    const defaultQFXTitle = 'Import Savings from QFX';
+    const defaultQFXDescription = 'Select the QFX file exported from your bank and click Upload.';
+
     // Portfolio Management Elements
     const selectEl = document.getElementById('portfolioSelect');
     const btnManagePortfolios = document.getElementById('btnManagePortfolios');
@@ -23,6 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAddPortfolio = document.getElementById('btnAddPortfolio');
 
     let currentPortfolioId = null;
+    let currentPortfolioType = 'INVESTMENT';
+    let allPortfolios = [];
 
     // Formatters
     const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -155,15 +165,31 @@ document.addEventListener('DOMContentLoaded', () => {
         return result.data;
     };
 
+    const importPortfolioFromQfx = async (file) => {
+        const text = await file.text();
+        const res = await fetch(`/api/portfolios/${currentPortfolioId}/import-qfx`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ qfxText: text })
+        });
+
+        const result = await res.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to import savings QFX.');
+        }
+
+        return result.data;
+    };
+
     const handlePortfolioImport = async () => {
         if (!currentPortfolioId) {
-            showError('Select a portfolio before importing a CSV.');
+            showError('Select a portfolio before importing.');
             return;
         }
 
         const file = importFileInput.files?.[0];
         if (!file) {
-            showError('Choose a CSV file to import.');
+            showError(currentPortfolioType === 'SAVINGS' ? 'Choose a QFX file to import.' : 'Choose a CSV file to import.');
             return;
         }
 
@@ -174,14 +200,16 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmImportBtn.textContent = 'Importing...';
 
             try {
-                const data = await importPortfolioFromCsv(file);
+                const data = currentPortfolioType === 'SAVINGS'
+                    ? await importPortfolioFromQfx(file)
+                    : await importPortfolioFromCsv(file);
                 renderPortfolio(data);
                 fetchHistory(true);
                 fetchCorrelation(true);
                 hideImportModal();
                 return true;
             } catch (err) {
-                showError(err.message || 'Failed to import portfolio CSV.');
+                showError(err.message || 'Failed to import.');
                 return false;
             } finally {
                 confirmImportBtn.disabled = false;
@@ -192,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const showImportModal = () => {
         if (!importModal) return;
+        //RMM - Set modal text based on portfolio type
         importModal.style.display = 'flex';
         // focus file input after render
         setTimeout(() => { importFileInput?.focus(); }, 50);
@@ -207,7 +236,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderPortfolio = (data) => {
         // Update Hero Stats
         totalValueEl.textContent = formatCurrency(data.totalValue);
-
+        if (data.port_type === 'SAVINGS') {
+            currentPortfolioType = 'SAVINGS';
+        } else {
+            currentPortfolioType = 'INVESTMENT';
+        }
+        updateUIForPortfolioType(); //RMM
         const sumColor = data.isTargetValid ? 'var(--positive)' : 'var(--negative)';
         actualPercentageSumEl.textContent = formatPercent(data.targetPercentageSum);
         actualPercentageSumEl.style.color = sumColor;
@@ -229,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Inject Rows safely (avoid innerHTML with user-controlled data)
         data.details.forEach(inv => {
             const tr = document.createElement('tr');
-            if (inv.ticker === 'CASH') tr.classList.add('cash-row');
+            if (inv.ticker === 'CASH' || inv.ticker === 'SAVINGS') tr.classList.add('cash-row');
 
             // Ticker cell
             const tdTicker = document.createElement('td');
@@ -260,7 +294,8 @@ document.addEventListener('DOMContentLoaded', () => {
             sharesInput.value = String(inv.shares);
             sharesInput.step = 'any';
             sharesInput.min = '0';
-            sharesInput.title = inv.ticker === 'CASH' ? 'Total Dollar Amount' : 'Number of Shares';
+            sharesInput.title = (inv.ticker === 'CASH' || inv.ticker === 'SAVINGS') ? 'Total Dollar Amount' : 'Number of Shares';
+            if (inv.ticker === 'SAVINGS') sharesInput.disabled = true;
             tdShares.appendChild(sharesInput);
 
             // Price cell
@@ -280,6 +315,10 @@ document.addEventListener('DOMContentLoaded', () => {
             typeInput.setAttribute('data-field', 'type');
             typeInput.value = inv.type || '';
             typeInput.placeholder = 'e.g. Stock';
+            if (inv.ticker === 'SAVINGS') {
+                typeInput.value = 'Savings';
+                typeInput.disabled = true;
+            }
             tdType.appendChild(typeInput);
 
             // Macro Category cell
@@ -291,29 +330,36 @@ document.addEventListener('DOMContentLoaded', () => {
             macroCategoryInput.setAttribute('data-field', 'macroCategory');
             macroCategoryInput.value = inv.macroCategory || '';
             macroCategoryInput.placeholder = 'e.g. Tech';
+            if (inv.ticker === 'SAVINGS') {
+                macroCategoryInput.value = 'Savings';
+                macroCategoryInput.disabled = true;
+            }
             tdMacroCategory.appendChild(macroCategoryInput);
 
             // FCF Yield cell
             const tdFcfYield = document.createElement('td');
-            tdFcfYield.textContent = formatRealValue(inv.fcfYield);
+            tdFcfYield.textContent = inv.ticker === 'SAVINGS' ? '-' : formatRealValue(inv.fcfYield);
 
             // Payout Ratio cell
             const tdPayoutRatio = document.createElement('td');
-            // change this to payback ratio which is inv.annualDividend / (inv.price)
-            paybackRatio = ((inv.price > 0 && inv.annualDividend >  0) ? inv.annualDividend / inv.price : 0);
-            tdPayoutRatio.textContent = formatPercent(paybackRatio);
+            if (inv.ticker === 'SAVINGS') {
+                tdPayoutRatio.textContent = '-';
+            } else {
+                paybackRatio = ((inv.price > 0 && inv.annualDividend >  0) ? inv.annualDividend / inv.price : 0);
+                tdPayoutRatio.textContent = formatPercent(paybackRatio);
+            }
 
             // ROIC cell
             const tdRoic = document.createElement('td');
-            tdRoic.textContent = formatRealValue(inv.roic);
+            tdRoic.textContent = inv.ticker === 'SAVINGS' ? '-' : formatRealValue(inv.roic);
 
             // Annual Dividend cell
             const tdAnnualDividend = document.createElement('td');
-            tdAnnualDividend.textContent = formatCurrency(inv.annualDividend);
+            tdAnnualDividend.textContent = inv.ticker === 'SAVINGS' ? '-' : formatCurrency(inv.annualDividend);
 
             // Est. Forward Cash Flow cell
             const tdEstForwardCashflow = document.createElement('td');
-            tdEstForwardCashflow.textContent = formatCurrency(inv.estimatedForwardCashflow);
+            tdEstForwardCashflow.textContent = inv.ticker === 'SAVINGS' ? '-' : formatCurrency(inv.estimatedForwardCashflow);
 
             // Percent cell with target input
             const tdPercent = document.createElement('td');
@@ -332,24 +378,32 @@ document.addEventListener('DOMContentLoaded', () => {
             targetInput.step = '0.01';
             targetInput.min = '0';
             targetInput.max = '1';
+            if (inv.ticker === 'SAVINGS') {
+                targetInput.value = '1';
+                targetInput.disabled = true;
+            }
             spanTarget.appendChild(targetInput);
             tdPercent.appendChild(spanActual);
             tdPercent.appendChild(spanTarget);
 
             // Diff / action cell
             const tdDiff = document.createElement('td');
-            const isBuy = inv.rebalanceAmount >= 0;
-            tdDiff.className = isBuy ? 'diff-positive' : 'diff-negative';
-            tdDiff.textContent = isBuy ? `BUY ${formatCurrency(inv.rebalanceAmount)}` : `SELL ${formatCurrency(Math.abs(inv.rebalanceAmount))}`;
-            const smallDiff = document.createElement('div');
-            smallDiff.style.fontSize = '0.8em';
-            smallDiff.style.opacity = '0.8';
-            smallDiff.textContent = `Diff: ${formatPercent(inv.differencePercentage)}`;
-            tdDiff.appendChild(smallDiff);
+            if (inv.ticker === 'SAVINGS') {
+                tdDiff.textContent = '-';
+            } else {
+                const isBuy = inv.rebalanceAmount >= 0;
+                tdDiff.className = isBuy ? 'diff-positive' : 'diff-negative';
+                tdDiff.textContent = isBuy ? `BUY ${formatCurrency(inv.rebalanceAmount)}` : `SELL ${formatCurrency(Math.abs(inv.rebalanceAmount))}`;
+                const smallDiff = document.createElement('div');
+                smallDiff.style.fontSize = '0.8em';
+                smallDiff.style.opacity = '0.8';
+                smallDiff.textContent = `Diff: ${formatPercent(inv.differencePercentage)}`;
+                tdDiff.appendChild(smallDiff);
+            }
 
             // Actions cell
             const tdActions = document.createElement('td');
-            if (inv.ticker !== 'CASH') {
+            if (inv.ticker !== 'CASH' && inv.ticker !== 'SAVINGS') {
                 const delBtn = document.createElement('button');
                 delBtn.className = 'btn-delete';
                 delBtn.setAttribute('data-ticker', inv.ticker);
@@ -383,10 +437,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Update Footer Totals
-        const totalEstForwardCashflow = data.details.reduce((sum, inv) => sum + (inv.estimatedForwardCashflow || 0), 0);
-        document.getElementById('totalEstForwardCashflowCell').textContent = formatCurrency(totalEstForwardCashflow);
-        document.getElementById('totalValueCell').textContent = formatCurrency(data.totalValue);
-        document.getElementById('totalTargetAllocationCell').textContent = 'Target Sum: ' + formatPercent(data.targetPercentageSum);
+        if (currentPortfolioType === 'SAVINGS') {
+            document.getElementById('totalEstForwardCashflowCell').textContent = '-';
+            document.getElementById('totalValueCell').textContent = formatCurrency(data.totalValue);
+            document.getElementById('totalTargetAllocationCell').textContent = 'Target Sum: 100.00%';
+        } else {
+            const totalEstForwardCashflow = data.details.reduce((sum, inv) => sum + (inv.estimatedForwardCashflow || 0), 0);
+            document.getElementById('totalEstForwardCashflowCell').textContent = formatCurrency(totalEstForwardCashflow);
+            document.getElementById('totalValueCell').textContent = formatCurrency(data.totalValue);
+            document.getElementById('totalTargetAllocationCell').textContent = 'Target Sum: ' + formatPercent(data.targetPercentageSum);
+        }
+    };
+
+    const updateUIForPortfolioType = () => {
+        const isSavings = currentPortfolioType === 'SAVINGS';
+
+        // Update file input accept attribute
+        // importFileInput.accept = isSavings ? '.qfx,.QFX,.ofx,.OFX,application/x-qfx,text/x-qfx' : '.csv,.CSV,text/csv';
+
+        // Update import button text
+        const importBtnLabel = importPortfolioBtn.querySelector('span') || importPortfolioBtn;
+        if (importBtnLabel) {
+            importBtnLabel.textContent = isSavings ? 'Import QFX' : 'Import CSV';
+        }
+// RMM - Update modal text based on portfolio type
+        importModalTitle.textContent = isSavings ? defaultQFXTitle : defaultCSVTitle;
+         importModalDesc.textContent = isSavings ? defaultQFXDescription : defaultCSVDescription;
+
+        // Hide/show Sync Prices button
+        updatePricesBtn.style.display = isSavings ? 'none' : 'block';
+
+        // Hide/show Add Allocation form
+        addInvestmentForm.style.display = isSavings ? 'none' : 'block';
+
+        // Hide/show Heatmap button
+        const heatmapBtn = document.getElementById('btnToggleCorrelation'); //RMM this worked
+        if (heatmapBtn) {
+            heatmapBtn.style.display = isSavings ? 'none' : 'block';
+        }
     };
 
     // Fetch initial state

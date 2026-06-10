@@ -60,7 +60,7 @@ const getPortfolio = (id) => {
 
 app.get('/api/portfolios', (req, res) => {
     try {
-        const rows = dbManager.db.prepare('SELECT id, name, is_hidden FROM portfolios ORDER BY id ASC').all();
+        const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
     } catch(err) {
          res.status(500).json({ success: false, error: err.message });
@@ -69,10 +69,11 @@ app.get('/api/portfolios', (req, res) => {
 
 app.post('/api/portfolios', (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, type } = req.body;
         if (!name) return res.status(400).json({ error: 'Name required.' });
-        dbManager.db.prepare('INSERT INTO portfolios (name) VALUES (?)').run(name);
-        const rows = dbManager.db.prepare('SELECT id, name, is_hidden FROM portfolios ORDER BY id ASC').all();
+        const portfolioType = type || 'INVESTMENT';
+        dbManager.db.prepare('INSERT INTO portfolios (name, type) VALUES (?, ?)').run(name, portfolioType);
+        const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
     } catch(err) {
          res.status(500).json({ success: false, error: err.message });
@@ -84,7 +85,7 @@ app.put('/api/portfolios/:id/visibility', (req, res) => {
         const id = parseInt(req.params.id);
         const { is_hidden } = req.body;
         dbManager.db.prepare('UPDATE portfolios SET is_hidden = ? WHERE id = ?').run(is_hidden ? 1 : 0, id);
-        const rows = dbManager.db.prepare('SELECT id, name, is_hidden FROM portfolios ORDER BY id ASC').all();
+        const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
     } catch(err) {
          res.status(500).json({ success: false, error: err.message });
@@ -97,7 +98,7 @@ app.put('/api/portfolios/:id/name', (req, res) => {
         const { name } = req.body;
         if (!name) return res.status(400).json({ error: 'Name required.' });
         dbManager.db.prepare('UPDATE portfolios SET name = ? WHERE id = ?').run(name, id);
-        const rows = dbManager.db.prepare('SELECT id, name, is_hidden FROM portfolios ORDER BY id ASC').all();
+        const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
     } catch(err) {
          res.status(500).json({ success: false, error: err.message });
@@ -108,7 +109,7 @@ app.delete('/api/portfolios/:id', (req, res) => {
     try {
         const id = parseInt(req.params.id);
         dbManager.db.prepare('DELETE FROM portfolios WHERE id = ?').run(id);
-        const rows = dbManager.db.prepare('SELECT id, name, is_hidden FROM portfolios ORDER BY id ASC').all();
+        const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
     } catch(err) {
          res.status(500).json({ success: false, error: err.message });
@@ -121,7 +122,8 @@ app.get('/api/portfolios/:id/status', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
         await portfolio.ensureAssetNames();
-        const status = portfolio.getPortfolioStatus();
+        let status = portfolio.getPortfolioStatus();
+        status.port_type = portfolio.type; // Include portfolio type in status response
         res.json({ success: true, data: status });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -197,6 +199,25 @@ app.post('/api/portfolios/:id/import', async (req, res) => {
     }
 
         portfolio.importHoldings(holdings, generatedAt || null);
+        await portfolio.ensureAssetNames();
+
+        const status = portfolio.getPortfolioStatus();
+        res.json({ success: true, data: status });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/portfolios/:id/import-qfx', async (req, res) => {
+    try {
+        const portfolio = getPortfolio(req.params.id);
+        const { qfxText } = req.body;
+
+        if (!qfxText) {
+            return res.status(400).json({ success: false, error: 'QFX text content is required for import.' });
+        }
+
+        portfolio.importQfx(qfxText);
         await portfolio.ensureAssetNames();
 
         const status = portfolio.getPortfolioStatus();

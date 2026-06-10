@@ -28,8 +28,9 @@ test('Unified schema migration loop adds missing columns', () => {
 
     dm.log = origLog;
 
-    // We have 9 dynamic migration columns
-    assert.strictEqual(execCalls.length, 9);
+    // We have portfolios type migration + 9 dynamic investments migration columns
+    assert.strictEqual(execCalls.length, 10);
+    assert.ok(execCalls.some(sql => sql.includes('ALTER TABLE portfolios ADD COLUMN type TEXT')));
     assert.ok(execCalls.some(sql => sql.includes('ALTER TABLE investments ADD COLUMN name TEXT')));
     assert.ok(execCalls.some(sql => sql.includes('ALTER TABLE investments ADD COLUMN type TEXT')));
     assert.ok(execCalls.some(sql => sql.includes('ALTER TABLE investments ADD COLUMN estimated_forward_cashflow REAL')));
@@ -78,8 +79,9 @@ test('Unified schema migration loop handles errors gracefully', () => {
 
     dm.handleError = origHandle;
     
-    // We have 9 dynamic columns, each should call handleError when prepare throws
-    assert.strictEqual(handledErrors.length, 9);
-    assert.ok(handledErrors.every(h => h.ctx.startsWith('Migration column ')));
+    // We have portfolios type column + 9 dynamic investments columns, each should call handleError when prepare throws
+    assert.strictEqual(handledErrors.length, 10);
+    assert.ok(handledErrors.some(h => h.ctx === 'Migration column type on portfolios'));
+    assert.ok(handledErrors.filter(h => h.ctx.startsWith('Migration column ')).length >= 9);
     assert.ok(handledErrors.every(h => h.message.includes('Database prepare mock failure')));
 });

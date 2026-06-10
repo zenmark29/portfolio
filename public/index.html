@@ -19,9 +19,15 @@
                     <button id="btnManagePortfolios" class="btn btn-secondary">Manage ⚙️</button>
                     <div id="manageMenu" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 0.5rem; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; width: 280px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(12px);">
                         <h4 style="margin-bottom: 0.5rem;">New Portfolio</h4>
-                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-                            <input type="text" id="newPortfolioName" placeholder="Name" style="padding: 0.4rem; height: 35px;">
-                            <button id="btnAddPortfolio" class="btn btn-primary" style="margin: 0; padding: 0 1rem; height: 35px;">Add</button>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+                            <input type="text" id="newPortfolioName" placeholder="Name" style="padding: 0.4rem; height: 35px; width: 100%;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                <select id="newPortfolioType" class="grid-input" style="padding: 0.4rem; height: 35px; flex-grow: 1; background: rgba(15,23,42,0.8); border: 1px solid var(--border-color); color: #f8fafc; font-size: 0.85rem;">
+                                    <option value="INVESTMENT">Investment Portfolio</option>
+                                    <option value="SAVINGS">Savings Account</option>
+                                </select>
+                                <button id="btnAddPortfolio" class="btn btn-primary" style="margin: 0; padding: 0 1rem; height: 35px;">Add</button>
+                            </div>
                         </div>
                         <h4 style="margin-bottom: 0.5rem;">Manage Existing</h4>
                         <ul id="managePortfoliosList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
@@ -32,7 +38,7 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.15l5.59-4.8"/></svg>
                     Sync Prices
                 </button>
-                <button id="btnImportPortfolio" class="btn btn-secondary">Import CSV</button>
+                <button id="btnImportPortfolio" class="btn btn-secondary">Import File</button>
                 <button id="btnToggleChart" class="btn btn-secondary">Chart</button>
                 <button id="btnToggleCorrelation" class="btn btn-secondary">Heatmap</button>
             </div>
@@ -44,11 +50,11 @@
             <div style="position: relative; margin: 4rem auto; max-width: 480px; width: calc(100% - 2rem); z-index: 230;">
                 <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-                        <h4 style="margin:0;">Import Portfolio CSV</h4>
+                        <h4 id="importModalTitle" style="margin:0;">Import Portfolio CSV</h4>
                         <button id="closeImportModal" class="btn btn-secondary" style="height:32px;">✕</button>
                     </div>
-                    <p class="subtitle" style="margin-top:0.5rem;">Select the CSV exported from your broker and click Upload.</p>
-                    <input type="file" id="portfolioImportFile" accept=".csv" style="margin-top:0.75rem; width:100%; padding:0.5rem; background: rgba(15,23,42,0.8); border: 1px solid var(--border-color); color: #f8fafc;" />
+                    <p id="importModalDesc" class="subtitle" style="margin-top:0.5rem;">Select the CSV exported from your broker and click Upload.</p>
+                    <input type="file" id="portfolioImportFile"  style="margin-top:0.75rem; width:100%; padding:0.5rem; background: rgba(15,23,42,0.8); border: 1px solid var(--border-color); color: #f8fafc;" />
                     <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
                         <button id="confirmImportBtn" class="btn btn-primary">Upload</button>
                         <button id="cancelImportBtn" class="btn btn-primary">Cancel</button>

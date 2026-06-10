@@ -33,6 +33,7 @@ class DatabaseManager extends BaseObject {
             CREATE TABLE IF NOT EXISTS portfolios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
+                type TEXT DEFAULT 'INVESTMENT',
                 is_hidden INTEGER DEFAULT 0
             );
 
@@ -91,6 +92,16 @@ class DatabaseManager extends BaseObject {
      * Keeps backward compatibility for existing databases.
      */
     _migrateSchema() {
+        try {
+            const columnExists = this.db.prepare("SELECT count(*) as count FROM pragma_table_info('portfolios') WHERE name='type'").get().count > 0;
+            if (!columnExists) {
+                this.db.exec("ALTER TABLE portfolios ADD COLUMN type TEXT DEFAULT 'INVESTMENT'");
+                this.log("Schema migration: Added column type to portfolios table.");
+            }
+        } catch (e) {
+            this.handleError("Migration column type on portfolios", e);
+        }
+
         const columns = [
             { name: 'name', type: 'TEXT' },
             { name: 'type', type: 'TEXT' },
