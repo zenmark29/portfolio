@@ -22,7 +22,14 @@ const marketData = new MarketData();
 
 // Security middlewares
 app.use(helmet());
-const limiter = rateLimit({ windowMs: 60 * 1000, max: 60 }); // 60 requests/minute per IP
+// const limiter = rateLimit({ windowMs: 60 * 1000, max: 60 }); // 60 requests/minute per IP
+// Express 5 / rate-limit v8 standard syntax
+const limiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    limit: 60,           // 'max' is renamed to 'limit' for clarity, though max is aliased
+    standardHeaders: 'draft-7', // Draft-7 RateLimit headers
+    legacyHeaders: false,       // Disable X-RateLimit-* headers
+});
 app.use(limiter);
 
 app.use(express.json());
@@ -250,6 +257,18 @@ app.post('/api/portfolios/:id/prices/update', async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+// --- CENTRALIZED ERROR HANDLING MIDDLEWARE --- //
+app.use((err, req, res, next) => {
+    // Log precisely and descriptively but not verbosely
+    logger.error(`${req.method} ${req.path} failed: ${err.message}`);
+
+    res.status(500).json({
+        success: false,
+        error: err.message || 'Internal Server Error'
+    });
+});
+
 
 app.listen(port, '127.0.0.1', () => {
     logger.info(`Portfolio Web UI running on http://127.0.0.1:${port}`);

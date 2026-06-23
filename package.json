@@ -28,11 +28,12 @@
     "av_api": "github:zenmark29/av_api#main",
     "better-sqlite3": "^12.11.1",
     "chart.js": "^4.5.1",
-    "express": "^4.19.2",
-    "express-rate-limit": "^6.7.0",
-    "helmet": "^6.0.0",
+    "esbuild": "^0.28.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
     "winston": "^3.11.0",
-    "winston-daily-rotate-file": "^4.7.1"
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@yao-pkg/pkg": "^6.20.0",
@@ -41,7 +42,12 @@
   "allowScripts": {
     "bufferutil@4.1.0": true,
     "utf-8-validate@5.0.10": true,
-    "esbuild@0.27.7": true,
-    "better-sqlite3@12.11.1": true
+    "better-sqlite3@12.11.1": true,
+    "express@5.2.1": true,
+    "helmet@8.2.0": true,
+    "express-rate-limit@8.5.2": true,
+    "winston-daily-rotate-file@5.0.0": true,
+    "es5-ext@0.10.64": true,
+    "esbuild@0.28.1": true
   }
 }

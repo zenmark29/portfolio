@@ -9,6 +9,11 @@ const transport = new winston.transports.DailyRotateFile({
   maxFiles: '3d' // Keep logs for 3 days
 });
 
+// CRITICAL V5 UPDATE: Catch filesystem/rotation errors to avoid unhandled process crashes
+transport.on('error', (err) => {
+  console.error('Logging transport filesystem failure:', err.message);
+});
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
