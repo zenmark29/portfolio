@@ -819,3 +819,66 @@ test('Portfolio loadInvestments handles non-existent portfolio metadata fallback
     dbm.db.prepare = originalPrepare;
 });
 
+test('Portfolio SAVINGS importSavingsCsv updates holding and saves snapshot', () => {
+    const dbm = new DatabaseManager(':memory:');
+    dbm.db.prepare("INSERT INTO portfolios (name, type) VALUES ('My Savings', 'SAVINGS')").run();
+    const pRow = dbm.db.prepare("SELECT id FROM portfolios WHERE name = 'My Savings'").get();
+
+    const portfolio = new Portfolio(pRow.id, dbm, null);
+    portfolio.loadInvestments();
+
+    const csvText = `Account Summary
+Account,Total Balance,Available for withdrawal,Year-to-date (YTD) interest paid,Last year's interest earned,Annual percentage yield (APY)
+Premium Savings -3249,191961.45,191961.45,2597.73,7144.36,3.50,
+
+Generated at Jun 20 2026 12:50 PM ET
+`;
+
+    portfolio.importSavingsCsv(csvText);
+
+    assert.strictEqual(portfolio.investments[0].shares, 191961.45);
+    assert.strictEqual(portfolio.investments[0].name, 'Premium Savings -3249');
+
+    // Verify history snapshot was saved
+    const history = dbm.db.prepare("SELECT * FROM portfolio_history WHERE portfolio_id = ? AND date = ?").get(pRow.id, '2026-06-20');
+    assert.ok(history);
+    assert.strictEqual(history.total_value, 191961.45);
+
+    const historyItems = dbm.db.prepare("SELECT * FROM portfolio_history_items WHERE history_id = ?").all(history.id);
+    assert.strictEqual(historyItems.length, 1);
+    assert.strictEqual(historyItems[0].ticker, 'SAVINGS');
+    assert.strictEqual(historyItems[0].shares, 191961.45);
+    assert.strictEqual(historyItems[0].price, 1.0);
+});
+
+test('Portfolio importSavingsCsv throws error on non-SAVINGS portfolios', () => {
+    const dbm = new DatabaseManager(':memory:');
+    const portfolio = new Portfolio(1, dbm, null);
+    portfolio.loadInvestments(); // Defaults to INVESTMENT type
+
+    assert.throws(() => {
+        portfolio.importSavingsCsv('Account Summary\nAccount,Total Balance\nPremium Savings -3249,191961.45');
+    }, /Only an account with Type of SAVINGS can import CSV files\./);
+});
+
+test('Portfolio SAVINGS importSavingsCsv creates new SAVINGS investment if none exists', () => {
+    const dbm = new DatabaseManager(':memory:');
+    dbm.db.prepare("INSERT INTO portfolios (name, type) VALUES ('My Savings', 'SAVINGS')").run();
+    const pRow = dbm.db.prepare("SELECT id FROM portfolios WHERE name = 'My Savings'").get();
+
+    const portfolio = new Portfolio(pRow.id, dbm, null);
+    portfolio.type = 'SAVINGS'; // Manually set type without loading investments
+    portfolio.setInvestments([]); // Clear investments
+
+    const csvText = `Account Summary
+Account,Total Balance,Available for withdrawal,Year-to-date (YTD) interest paid,Last year's interest earned,Annual percentage yield (APY)
+Premium Savings -3249,191961.45,191961.45,2597.73,7144.36,3.50,
+`;
+    portfolio.importSavingsCsv(csvText);
+
+    assert.strictEqual(portfolio.investments.length, 1);
+    assert.strictEqual(portfolio.investments[0].ticker, 'SAVINGS');
+    assert.strictEqual(portfolio.investments[0].shares, 191961.45);
+});
+
+

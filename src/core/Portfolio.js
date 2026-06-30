@@ -3,6 +3,8 @@ import Investment from './Investment.js';
 import DatabaseManager from './DatabaseManager.js';
 import MarketData from './MarketData.js';
 import QfxParser from './QfxParser.js';
+import SavingsCsvParser from './SavingsCsvParser.js';
+
 
 class Portfolio extends BaseObject {
     /**
@@ -644,6 +646,33 @@ class Portfolio extends BaseObject {
         const snapshotDate = parsed.date;
         this.takeSnapshot(snapshotDate);
     }
+
+    /**
+     * Imports savings portfolio balance and name from CSV text.
+     * @param {string} csvText
+     */
+    importSavingsCsv(csvText) {
+        if (this.type !== 'SAVINGS') {
+            throw new Error('Only an account with Type of SAVINGS can import CSV files.');
+        }
+
+        const parsed = SavingsCsvParser.parse(csvText);
+
+        let savingsInv = this.investments.find(inv => inv.ticker === 'SAVINGS');
+        if (!savingsInv) {
+            savingsInv = new Investment('SAVINGS', parsed.balance, 1.0, parsed.name, 'Savings', 'Savings');
+            this.investments.push(savingsInv);
+        } else {
+            savingsInv.shares = parsed.balance;
+            savingsInv.name = parsed.name;
+        }
+
+        this.saveInvestments();
+
+        const snapshotDate = parsed.date;
+        this.takeSnapshot(snapshotDate);
+    }
 }
+
 
 export default Portfolio;

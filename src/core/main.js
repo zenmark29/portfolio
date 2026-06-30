@@ -211,6 +211,7 @@ app.post('/api/portfolios/:id/import', async (req, res) => {
         const status = portfolio.getPortfolioStatus();
         res.json({ success: true, data: status });
     } catch (error) {
+        logger.error(`POST /api/portfolios/${req.params.id}/import failed: ${error.message}`);
         res.status(400).json({ success: false, error: error.message });
     }
 });
@@ -230,9 +231,31 @@ app.post('/api/portfolios/:id/import-qfx', async (req, res) => {
         const status = portfolio.getPortfolioStatus();
         res.json({ success: true, data: status });
     } catch (error) {
+        logger.error(`POST /api/portfolios/${req.params.id}/import-qfx failed: ${error.message}`);
         res.status(400).json({ success: false, error: error.message });
     }
 });
+
+app.post('/api/portfolios/:id/import-savings-csv', async (req, res) => {
+    try {
+        const portfolio = getPortfolio(req.params.id);
+        const { csvText } = req.body;
+
+        if (!csvText) {
+            return res.status(400).json({ success: false, error: 'CSV text content is required for import.' });
+        }
+
+        portfolio.importSavingsCsv(csvText);
+        await portfolio.ensureAssetNames();
+
+        const status = portfolio.getPortfolioStatus();
+        res.json({ success: true, data: status });
+    } catch (error) {
+        logger.error(`POST /api/portfolios/${req.params.id}/import-savings-csv failed: ${error.message}`);
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
 
 app.delete('/api/portfolios/:id/investments/:ticker', (req, res) => {
     try {

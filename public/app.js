@@ -181,6 +181,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return result.data;
     };
 
+    const importSavingsCsv = async (file) => {
+        const text = await file.text();
+        const res = await fetch(`/api/portfolios/${currentPortfolioId}/import-savings-csv`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ csvText: text })
+        });
+
+        const result = await res.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to import savings CSV.');
+        }
+
+        return result.data;
+    };
+
     const handlePortfolioImport = async () => {
         if (!currentPortfolioId) {
             showError('Select a portfolio before importing.');
@@ -189,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const file = importFileInput.files?.[0];
         if (!file) {
-            showError(currentPortfolioType === 'SAVINGS' ? 'Choose a QFX file to import.' : 'Choose a CSV file to import.');
+            showError(currentPortfolioType === 'SAVINGS' ? 'Choose a QFX or CSV file to import.' : 'Choose a CSV file to import.');
             return;
         }
 
@@ -200,9 +216,16 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmImportBtn.textContent = 'Importing...';
 
             try {
-                const data = currentPortfolioType === 'SAVINGS'
-                    ? await importPortfolioFromQfx(file)
-                    : await importPortfolioFromCsv(file);
+                let data;
+                if (currentPortfolioType === 'SAVINGS') {
+                    if (file.name.toLowerCase().endsWith('.csv')) {
+                        data = await importSavingsCsv(file);
+                    } else {
+                        data = await importPortfolioFromQfx(file);
+                    }
+                } else {
+                    data = await importPortfolioFromCsv(file);
+                }
                 renderPortfolio(data);
                 fetchHistory(true);
                 fetchCorrelation(true);
@@ -453,16 +476,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const isSavings = currentPortfolioType === 'SAVINGS';
 
         // Update file input accept attribute
-        // importFileInput.accept = isSavings ? '.qfx,.QFX,.ofx,.OFX,application/x-qfx,text/x-qfx' : '.csv,.CSV,text/csv';
+        importFileInput.accept = isSavings ? '.qfx,.QFX,.ofx,.OFX,application/x-qfx,text/x-qfx,.csv,.CSV,text/csv' : '.csv,.CSV,text/csv';
 
         // Update import button text
         const importBtnLabel = importPortfolioBtn.querySelector('span') || importPortfolioBtn;
         if (importBtnLabel) {
-            importBtnLabel.textContent = isSavings ? 'Import QFX' : 'Import CSV';
+            importBtnLabel.textContent = isSavings ? 'Import QFX/CSV' : 'Import CSV';
         }
 // RMM - Update modal text based on portfolio type
-        importModalTitle.textContent = isSavings ? defaultQFXTitle : defaultCSVTitle;
-         importModalDesc.textContent = isSavings ? defaultQFXDescription : defaultCSVDescription;
+        importModalTitle.textContent = isSavings ? 'Import Savings from QFX/CSV' : defaultCSVTitle;
+        importModalDesc.textContent = isSavings ? 'Select the QFX or CSV file exported from your bank and click Upload.' : defaultCSVDescription;
 
         // Hide/show Sync Prices button
         updatePricesBtn.style.display = isSavings ? 'none' : 'block';
