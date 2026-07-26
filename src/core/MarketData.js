@@ -28,7 +28,7 @@ class MarketData extends BaseObject {
     async getEODPrice(ticker, date) {
         try {
             // Note: date should be a valid business day.
-            const response = await this.rest.stocks.dailyOpenClose(ticker, date);
+            const response = await this.rest.getStocksOpenClose(ticker, date);
             return response.close;
         } catch (error) {
             // If the date passed happens to be a weekend or holiday, it throws an error in Polygon.
@@ -62,7 +62,7 @@ class MarketData extends BaseObject {
      */
     async getAssetDetails(ticker) {
         try {
-            const response = await this.rest.reference.tickerDetails(ticker);
+            const response = await this.rest.getTicker(ticker);
             return response.results.name || null;
         } catch (error) {
             this.log(`Failed to fetch details for ${ticker}: ${error.message}`);

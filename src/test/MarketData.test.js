@@ -5,49 +5,45 @@ import MarketData from '../core/MarketData.js';
 test('MarketData logic and mocking', async () => {
     const originalKey = process.env.POLY_KEY;
     const originalAVKey = process.env.AV_KEY;
-    
+
     // Test constructor constraints
     delete process.env.POLY_KEY;
     assert.throws(() => new MarketData(), /POLY_KEY environment variable is not set/);
-    
+
     process.env.POLY_KEY = 'TEST_KEY';
     delete process.env.AV_KEY;
     assert.throws(() => new MarketData(), /AV_KEY environment variable is not set/);
-    
+
     process.env.AV_KEY = 'TEST_AV_KEY';
     const md = new MarketData();
-    
+
     md.rest = {
-        stocks: {
-            dailyOpenClose: mock.fn(async (ticker, date) => {
-                if (ticker === 'ERROR') throw new Error('Polygon timeout');
-                return { close: 155.5 };
-            })
-        }
+        getStocksOpenClose: mock.fn(async (ticker, date) => {
+            if (ticker === 'ERROR') throw new Error('Polygon timeout');
+            return { close: 155.5 };
+        })
     };
-    
+
     const price = await md.getEODPrice('AAPL', '2023-10-10');
     assert.strictEqual(price, 155.5);
-    
+
     await assert.rejects(async () => {
         await md.getEODPrice('ERROR', '2023-10-10');
     }, /Failed to fetch price for ERROR/);
 
     // Test getAssetDetails
-    md.rest.reference = {
-        tickerDetails: mock.fn(async (ticker) => {
-            if (ticker === 'ERROR') throw new Error('Polygon timeout');
-            if (ticker === 'NONAME') return { results: {} };
-            return { results: { name: 'Apple Inc.' } };
-        })
-    };
-    
+    md.rest.getTicker = mock.fn(async (ticker) => {
+        if (ticker === 'ERROR') throw new Error('Polygon timeout');
+        if (ticker === 'NONAME') return { results: {} };
+        return { results: { name: 'Apple Inc.' } };
+    });
+
     const name = await md.getAssetDetails('AAPL');
     assert.strictEqual(name, 'Apple Inc.');
-    
+
     const emptyName = await md.getAssetDetails('NONAME');
     assert.strictEqual(emptyName, null);
-    
+
     const errName = await md.getAssetDetails('ERROR');
     assert.strictEqual(errName, null);
 
@@ -142,7 +138,7 @@ test('MarketData logic and mocking', async () => {
 
     // Test specific date logic for getPreviousBusinessDay
     const originalDate = global.Date;
-    
+
     // Mock Monday -> should return Friday (-3 days)
     global.Date = class extends originalDate {
         constructor() { super('2026-05-04T12:00:00'); } // Monday
@@ -160,7 +156,7 @@ test('MarketData logic and mocking', async () => {
         setDate(d) { assert.strictEqual(d, 1); } // 3 - 2 = 1 (Friday)
     };
     MarketData.getPreviousBusinessDay();
-    
+
     global.Date = originalDate;
     process.env.POLY_KEY = originalKey;
     process.env.AV_KEY = originalAVKey;

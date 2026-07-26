@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/zenmark29/portfolio#readme",
   "dependencies": {
-    "@polygon.io/client-js": "^7.3.3",
+    "@polygon.io/client-js": "^8.2.0",
     "av_api": "github:zenmark29/av_api#main",
     "better-sqlite3": "^12.11.1",
     "chart.js": "^4.5.1",
