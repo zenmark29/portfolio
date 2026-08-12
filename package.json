@@ -8,7 +8,6 @@
     "start": "npm audit --audit-level=high; node src/core/main.js",
     "debug": "node --inspect src/core/main.js",
     "coverage": "c8 npm test",
-    "live-testing": "node --test src/test/*.test.js --watch",
     "//comment": "Run outdated on Friday and make a list of what to update.",
     "outdated": "npm outdated"
   },
