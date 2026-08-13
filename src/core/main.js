@@ -22,8 +22,7 @@ const marketData = new MarketData();
 
 // Security middlewares
 app.use(helmet());
-// const limiter = rateLimit({ windowMs: 60 * 1000, max: 60 }); // 60 requests/minute per IP
-// Express 5 / rate-limit v8 standard syntax
+
 const limiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     limit: 60,           // 'max' is renamed to 'limit' for clarity, though max is aliased

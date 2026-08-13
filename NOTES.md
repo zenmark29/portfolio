@@ -5,5 +5,5 @@
 
 - automated database backups
 
-- there is a CSV for the savings account. I can probably import that or the QFX file. The QFX is parsed. I need to check out the CSV file to see if I can parse that, too.
+
 

@@ -162,13 +162,13 @@ class Portfolio extends BaseObject {
             }
 
             if (existingTargetMap.has(upperTicker)) {
-                console.log(`Existing target for ${h.ticker}: ${existingTargetMap.get(upperTicker).ticker}`);
+                this.log(`Existing target for ${h.ticker}: ${existingTargetMap.get(upperTicker).ticker}`);
                 const existing = existingTargetMap.get(upperTicker);
                 existing.shares = shares;
 
                 return existing; //just updates it if it already exists
             } else {
-                 console.log(`Importing holding: ${h.ticker}, shares: ${shares}, value: ${h.value}, price: ${h.price}`);
+                this.log(`Importing holding: ${h.ticker}, shares: ${shares}, value: ${h.value}, price: ${h.price}`);
                 const newInv = new Investment(
                     upperTicker,
                     shares,

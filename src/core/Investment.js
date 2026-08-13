@@ -39,12 +39,7 @@ class Investment extends BaseObject {
         this._payoutRatio = (payoutRatio === null || payoutRatio === undefined || Number.isNaN(Number(payoutRatio))) ? null : Number(payoutRatio);
         this._roic = (roic === null || roic === undefined || Number.isNaN(Number(roic))) ? null : Number(roic);
         this._annualDividend = (annualDividend === null || annualDividend === undefined || Number.isNaN(Number(annualDividend))) ? null : Number(annualDividend);
-
-        // if (estimatedForwardCashflow !== null && estimatedForwardCashflow !== undefined && !Number.isNaN(Number(estimatedForwardCashflow))) {
-        //     this._estimatedForwardCashflow = Number(estimatedForwardCashflow);
-        // } else {
-            this._calculateForwardCashflow();
-        // }
+        this._calculateForwardCashflow();
     }
 
     /**
@@ -182,6 +177,7 @@ class Investment extends BaseObject {
 
     /**
      * Custom serialization representation of this object.
+     * UNUSED IN PRODUCTION: Only used in tests. Keep for now in case needed for future JSON export/API serialization.
      * @returns {Object}
      */
     serialize() {
