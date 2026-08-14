@@ -839,8 +839,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- CORRELATION HEATMAP LOGIC ---
+    // --- CORRELATION SCATTER PLOT LOGIC ---
     let isCorrelationVisible = false;
+    let correlationChart = null;
     const btnToggleCorrelation = document.getElementById('btnToggleCorrelation');
     const correlationPanel = document.getElementById('correlationPanel');
     const correlationContainer = document.getElementById('correlationContainer');
@@ -868,41 +869,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const getCorrCellStyle = (r) => {
+    const getCorrPointStyle = (r) => {
         if (r === null) {
             return {
-                bg: 'rgba(255, 255, 255, 0.02)',
-                border: '1px dashed rgba(255, 255, 255, 0.1)',
-                color: 'rgba(255, 255, 255, 0.2)'
+                bg: 'rgba(148, 163, 184, 0.4)',
+                border: 'rgba(148, 163, 184, 0.8)'
             };
         }
 
-        // Diagonal cell (self-correlation)
-        if (Math.abs(r - 1.0) < 0.0001) {
-            return {
-                bg: 'rgba(255, 255, 255, 0.06)',
-                border: '2px solid rgba(255, 255, 255, 0.15)',
-                color: '#f8fafc'
-            };
-        }
-
-        const opacity = Math.min(0.85, Math.abs(r) * 0.85);
+        const opacity = Math.min(0.95, Math.abs(r) * 0.85 + 0.15);
 
         if (r > 0) {
-            // Warm coral red for positive correlation
             return {
-                bg: `hsla(8, 80%, 48%, ${opacity})`,
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                color: opacity > 0.4 ? '#f8fafc' : '#cbd5e1'
-            };
-        } else {
-            // Cool indigo blue for negative correlation
-            return {
-                bg: `hsla(235, 80%, 55%, ${opacity})`,
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                color: opacity > 0.4 ? '#f8fafc' : '#cbd5e1'
+                bg: `hsla(8, 80%, 58%, ${opacity})`,
+                border: 'rgba(254, 202, 202, 0.9)'
             };
         }
+
+        return {
+            bg: `hsla(235, 80%, 62%, ${opacity})`,
+            border: 'rgba(191, 219, 254, 0.9)'
+        };
     };
 
     const getCorrExplanation = (t1, t2, r) => {
@@ -913,11 +900,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return `Insufficient historical data to compute correlation between <strong>${t1}</strong> and <strong>${t2}</strong> (requires at least 3 common price dates).`;
         }
 
-        const valStr = r === null ? 'N/A' : r.toFixed(2);
+        const valStr = r.toFixed(2);
         let desc = '';
-        if (r === null) {
-            desc = 'Insufficient historical data to compute correlation.';
-        } else if (r > 0.7) {
+        if (r > 0.7) {
             desc = 'Strong positive correlation — they tend to move in tandem (low diversification).';
         } else if (r > 0.3) {
             desc = 'Moderate positive correlation — some diversification benefits, but they often move together.';
@@ -951,81 +936,145 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Build table using DOM APIs to avoid injecting user data directly as HTML
-        const table = document.createElement('table');
-        table.className = 'correlation-matrix';
-
-        const thead = document.createElement('thead');
-        const headRow = document.createElement('tr');
-        const emptyTh = document.createElement('th');
-        headRow.appendChild(emptyTh);
-        tickers.forEach(t => {
-            const th = document.createElement('th');
-            th.className = 'col-hdr';
-            th.textContent = t;
-            headRow.appendChild(th);
-        });
-        thead.appendChild(headRow);
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-        tickers.forEach(t1 => {
-            const tr = document.createElement('tr');
-            const rowHdr = document.createElement('th');
-            rowHdr.className = 'row-hdr';
-            rowHdr.textContent = t1;
-            tr.appendChild(rowHdr);
-
-            tickers.forEach(t2 => {
-                const td = document.createElement('td');
-                td.className = 'corr-cell';
+        const scatterPoints = [];
+        tickers.forEach((t1, index) => {
+            for (let j = index + 1; j < tickers.length; j++) {
+                const t2 = tickers[j];
                 const r = matrix[t1][t2];
-                const style = getCorrCellStyle(r);
-                const valStr = r === null ? 'N/A' : r.toFixed(2);
+                if (r === null) continue;
 
-                td.dataset.t1 = t1;
-                td.dataset.t2 = t2;
-                td.dataset.r = (r !== null) ? String(r) : '';
-
-                td.style.background = style.bg;
-                td.style.border = style.border;
-                td.style.color = style.color;
-                td.textContent = valStr;
-                tr.appendChild(td);
-            });
-
-            tbody.appendChild(tr);
-        });
-
-        table.appendChild(tbody);
-
-        // Replace container contents
-        correlationContainer.innerHTML = '';
-        correlationContainer.appendChild(table);
-
-        // Hover listeners for custom dynamic explanation box
-        const cells = correlationContainer.querySelectorAll('.corr-cell');
-        cells.forEach(cell => {
-            cell.addEventListener('mouseenter', () => {
-                const t1 = cell.dataset.t1;
-                const t2 = cell.dataset.t2;
-                const rRaw = cell.dataset.r;
-                const r = rRaw === '' ? null : parseFloat(rRaw);
-                correlationDetails.textContent = getCorrExplanation(t1, t2, r);
-
-                // Highlight row/col header visually
-                cells.forEach(c => {
-                    if (c.dataset.t1 === t1 || c.dataset.t2 === t2) {
-                        c.classList.add('active-hover');
-                    }
+                const style = getCorrPointStyle(r);
+                scatterPoints.push({
+                    x: `${t1}/${t2}`,
+                    y: r,
+                    t1,
+                    t2,
+                    r,
+                    pointBackgroundColor: style.bg,
+                    pointBorderColor: style.border,
+                    pointRadius: 8,
+                    pointHoverRadius: 10
                 });
-            });
-
-            cell.addEventListener('mouseleave', () => {
-                correlationDetails.textContent = 'Hover over any cell in the matrix to analyze asset diversification.';
-                cells.forEach(c => c.classList.remove('active-hover'));
-            });
+            }
         });
+
+        scatterPoints.sort((a, b) => b.r - a.r);
+
+        if (scatterPoints.length === 0) {
+            correlationContainer.innerHTML = `
+                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1rem; opacity: 0.5;"><path d="M3 12h18M12 3v18"/></svg>
+                    <p style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">No Comparable Correlations</p>
+                    <p style="font-size: 0.85rem; max-width: 420px; margin: 0 auto;">This portfolio does not have enough overlapping price history to compare asset pair correlations.</p>
+                </div>
+            `;
+            correlationDetails.textContent = 'Add more synchronized price data to see diversification patterns.';
+            return;
+        }
+
+        correlationContainer.innerHTML = '<div class="correlation-chart-wrapper"><canvas id="correlationChart"></canvas></div>';
+
+        if (correlationChart) {
+            correlationChart.destroy();
+        }
+
+        const ctx = correlationContainer.querySelector('#correlationChart');
+        correlationChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Asset Pair Correlation',
+                    data: scatterPoints,
+                    showLine: false,
+                    pointBackgroundColor: scatterPoints.map(p => p.pointBackgroundColor),
+                    pointBorderColor: scatterPoints.map(p => p.pointBorderColor),
+                    pointBorderWidth: 1.5,
+                    pointRadius: 8,
+                    pointHoverRadius: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'nearest',
+                    intersect: true
+                },
+                animation: false,
+                elements: {
+                    point: {
+                        borderWidth: 1.5
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'category',
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.06)'
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Asset Pair',
+                            color: '#cbd5e1'
+                        }
+                    },
+                    y: {
+                        min: -1,
+                        max: 1,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.08)'
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            callback: (value) => value.toFixed(2)
+                        },
+                        title: {
+                            display: true,
+                            text: 'Daily Return Correlation',
+                            color: '#cbd5e1'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            title: (items) => {
+                                const item = items[0]?.raw;
+                                if (!item) return '';
+                                return `${item.t1} / ${item.t2}`;
+                            },
+                            label: (context) => `Correlation: ${context.raw.y.toFixed(2)}`
+                        }
+                    }
+                },
+                onHover: (event, activeElements, chart) => {
+                    if (!activeElements || activeElements.length === 0) {
+                        correlationDetails.textContent = 'Hover over any point in the scatter plot to analyze asset diversification.';
+                        return;
+                    }
+
+                    const point = chart.data.datasets[0].data[activeElements[0].index];
+                    correlationDetails.textContent = getCorrExplanation(point.t1, point.t2, point.r);
+                }
+            }
+        });
+
+        correlationDetails.textContent = 'Hover over any point in the scatter plot to analyze asset diversification.';
     };
 
     const fetchPortfolios = async () => {
