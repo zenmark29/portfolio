@@ -546,8 +546,7 @@ class Portfolio extends BaseObject {
 
         for (const inv of this.investments) {
             const ticker = inv.ticker;
-            if (ticker === 'CASH' || (ticker.length === 5 && ticker.endsWith('XX'))) continue;
-
+            if (ticker === 'CASH') continue;
             const record = selectQuery.get(this.portfolioId, ticker);
             if (!record) continue;
 
