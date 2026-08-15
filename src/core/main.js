@@ -30,10 +30,18 @@ const limiter = rateLimit({
     legacyHeaders: false,       // Disable X-RateLimit-* headers
 });
 app.use(limiter);
-
-app.use(express.json());
+app.use(express.json({ limit: '2mb' })); // Limit JSON payloads to 2MB
 app.use(express.static(path.join(__dirname, '../../public')));
 
+/**
+ * GET /api/portfolios/:id/history
+ * Retrieves historical snapshots of portfolio value and holdings over time.
+ * Each snapshot is a point-in-time record created after a price update.
+ * Used to display performance charts and track allocation changes.
+ *
+ * @param {number} id - Portfolio ID
+ * @returns {Object} { success: true, data: Array<{ date, totalValue, holdings }> }
+ */
 app.get('/api/portfolios/:id/history', (req, res) => {
     try {
         const portfolioId = parseInt(req.params.id);
@@ -64,28 +72,57 @@ const getPortfolio = (id) => {
 
 // --- PORTFOLIOS API ROUTES --- //
 
+/**
+ * GET /api/portfolios
+ * Retrieves all portfolios from the database.
+ * Used by the UI to populate the portfolio selector dropdown and manage existing portfolios.
+ *
+ * @returns {Object} { success: true, data: Array<{ id, name, type, is_hidden }> }
+ */
 app.get('/api/portfolios', (req, res) => {
     try {
         const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
-    } catch(err) {
-         res.status(500).json({ success: false, error: err.message });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
+/**
+ * POST /api/portfolios
+ * Creates a new portfolio with the given name and type.
+ * Validates portfolio name (max 30 chars, no special chars) before insertion.
+ * Returns updated list of all portfolios after creation.
+ *
+ * @param {string} name - Portfolio name (required, max 30 characters)
+ * @param {string} type - Portfolio type: 'INVESTMENT' or 'SAVINGS' (defaults to 'INVESTMENT')
+ * @returns {Object} { success: true, data: Array<{ id, name, type, is_hidden }> }
+ */
 app.post('/api/portfolios', (req, res) => {
     try {
         const { name, type } = req.body;
         if (!name) return res.status(400).json({ error: 'Name required.' });
+        if (!name || name.length > 30 || /[<>"']/g.test(name)) {
+            return res.status(400).json({ error: 'Invalid portfolio name - cannot be more than 30 characters' });
+        }
         const portfolioType = type || 'INVESTMENT';
         dbManager.db.prepare('INSERT INTO portfolios (name, type) VALUES (?, ?)').run(name, portfolioType);
         const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
-    } catch(err) {
-         res.status(500).json({ success: false, error: err.message });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
+/**
+ * PUT /api/portfolios/:id/visibility
+ * Toggles the visibility (hide/show) of a portfolio in the UI.
+ * Hidden portfolios are excluded from the main display but remain in the database.
+ *
+ * @param {number} id - Portfolio ID
+ * @param {boolean} is_hidden - True to hide, false to show
+ * @returns {Object} { success: true, data: Array<{ id, name, type, is_hidden }> }
+ */
 app.put('/api/portfolios/:id/visibility', (req, res) => {
     try {
         const id = parseInt(req.params.id);
@@ -93,11 +130,20 @@ app.put('/api/portfolios/:id/visibility', (req, res) => {
         dbManager.db.prepare('UPDATE portfolios SET is_hidden = ? WHERE id = ?').run(is_hidden ? 1 : 0, id);
         const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
-    } catch(err) {
-         res.status(500).json({ success: false, error: err.message });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
+/**
+ * PUT /api/portfolios/:id/name
+ * Renames an existing portfolio.
+ * Validates that the name is not empty before updating.
+ *
+ * @param {number} id - Portfolio ID
+ * @param {string} name - New portfolio name (required)
+ * @returns {Object} { success: true, data: Array<{ id, name, type, is_hidden }> }
+ */
 app.put('/api/portfolios/:id/name', (req, res) => {
     try {
         const id = parseInt(req.params.id);
@@ -106,24 +152,41 @@ app.put('/api/portfolios/:id/name', (req, res) => {
         dbManager.db.prepare('UPDATE portfolios SET name = ? WHERE id = ?').run(name, id);
         const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
-    } catch(err) {
-         res.status(500).json({ success: false, error: err.message });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
+/**
+ * DELETE /api/portfolios/:id
+ * Deletes a portfolio and all associated investments and history (via CASCADE).
+ * This is a permanent operation and cannot be undone.
+ *
+ * @param {number} id - Portfolio ID to delete
+ * @returns {Object} { success: true, data: Array<{ id, name, type, is_hidden }> }
+ */
 app.delete('/api/portfolios/:id', (req, res) => {
     try {
         const id = parseInt(req.params.id);
         dbManager.db.prepare('DELETE FROM portfolios WHERE id = ?').run(id);
         const rows = dbManager.db.prepare('SELECT id, name, type, is_hidden FROM portfolios ORDER BY id ASC').all();
         res.json({ success: true, data: rows });
-    } catch(err) {
-         res.status(500).json({ success: false, error: err.message });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
 // --- REST API ROUTES FOR SPECIFIC PORTFOLIOS --- //
 
+/**
+ * GET /api/portfolios/:id/status
+ * Retrieves the current portfolio status including total value, allocations, and performance metrics.
+ * Ensures asset names are fetched from MarketData before returning status.
+ * This is the primary endpoint for displaying portfolio summary in the UI.
+ *
+ * @param {number} id - Portfolio ID
+ * @returns {Object} { success: true, data: { totalValue, holdings, targetPercentageSum, port_type, ... } }
+ */
 app.get('/api/portfolios/:id/status', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
@@ -136,6 +199,14 @@ app.get('/api/portfolios/:id/status', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/portfolios/:id/correlation
+ * Calculates and returns the correlation matrix between all assets in the portfolio.
+ * Used by the heatmap visualization to show asset relationships and diversification quality.
+ *
+ * @param {number} id - Portfolio ID
+ * @returns {Object} { success: true, data: correlation matrix }
+ */
 app.get('/api/portfolios/:id/correlation', (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
@@ -146,13 +217,35 @@ app.get('/api/portfolios/:id/correlation', (req, res) => {
     }
 });
 
+/**
+ * POST /api/portfolios/:id/investments
+ * Adds or updates a single investment (holding) in a portfolio.
+ * If the ticker already exists, it updates the shares and target percentage.
+ * Validates ticker format (1-5 uppercase letters) and ensures required fields are present.
+ *
+ * @param {number} id - Portfolio ID
+ * @param {string} ticker - Stock/ETF ticker symbol (1-5 uppercase letters, required)
+ * @param {number} shares - Number of shares held (required)
+ * @param {number} targetPercentage - Target portfolio allocation % (required, 0-1)
+ * @param {string} [type] - Investment type (Stock, ETF, Crypto, etc.)
+ * @param {string} [macroCategory] - Macro category (Growth, Value, Income, etc.)
+ * @param {number} [fcfYield] - Free cash flow yield
+ * @param {number} [payoutRatio] - Payout ratio
+ * @param {number} [roic] - Return on invested capital
+ * @param {number} [annualDividend] - Annual dividend amount
+ * @returns {Object} { success: true, data: updated portfolio status }
+ */
 app.post('/api/portfolios/:id/investments', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
         const { ticker, shares, targetPercentage, type, macroCategory, fcfYield, payoutRatio, roic, annualDividend } = req.body;
 
+        if (!ticker || !/^[A-Z]{1,5}$/.test(ticker)) {
+            return res.status(400).json({ error: 'Invalid ticker format - ticker cannot be longer than 5 characters' });
+        }
+
         if (!ticker || shares === undefined || targetPercentage === undefined) {
-             return res.status(400).json({ success: false, error: 'Ticker, shares, and targetPercentage are required' });
+            return res.status(400).json({ success: false, error: 'Ticker, shares, and targetPercentage are required' });
         }
 
         const existingIndex = portfolio.investments.findIndex(i => i.ticker === ticker);
@@ -188,6 +281,18 @@ app.post('/api/portfolios/:id/investments', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/portfolios/:id/import
+ * Bulk imports holdings from a parsed CSV export (typically from a broker).
+ * Replaces the entire portfolio holdings with the provided array.
+ * Automatically moves CASH to the front of the holdings list for UI consistency.
+ * Subject to 2MB JSON body limit.
+ *
+ * @param {number} id - Portfolio ID
+ * @param {Array} holdings - Array of { ticker, shares, targetPercentage, ... } (required, non-empty)
+ * @param {string} [generatedAt] - Timestamp when the CSV was generated
+ * @returns {Object} { success: true, data: updated portfolio status }
+ */
 app.post('/api/portfolios/:id/import', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
@@ -199,10 +304,10 @@ app.post('/api/portfolios/:id/import', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Holdings array is required for import.' });
         }
 
-    const index = holdings.findIndex(inv => inv.ticker === 'CASH');
-    if (index > -1) {
-        holdings.unshift(holdings.splice(index, 1)[0]);
-    }
+        const index = holdings.findIndex(inv => inv.ticker === 'CASH');
+        if (index > -1) {
+            holdings.unshift(holdings.splice(index, 1)[0]);
+        }
 
         portfolio.importHoldings(holdings, generatedAt || null);
         await portfolio.ensureAssetNames();
@@ -215,6 +320,17 @@ app.post('/api/portfolios/:id/import', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/portfolios/:id/import-qfx
+ * Imports a savings account balance from a QFX (Quicken Financial Exchange) file.
+ * Parses QFX format to extract balance, account name, and date.
+ * Typically used for brokerage cash positions or savings accounts.
+ * Subject to 2MB JSON body limit.
+ *
+ * @param {number} id - Portfolio ID (must be of type 'SAVINGS')
+ * @param {string} qfxText - Raw QFX file content (required)
+ * @returns {Object} { success: true, data: updated portfolio status }
+ */
 app.post('/api/portfolios/:id/import-qfx', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
@@ -235,6 +351,17 @@ app.post('/api/portfolios/:id/import-qfx', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/portfolios/:id/import-savings-csv
+ * Imports a savings account balance from a custom CSV export format.
+ * Parses CSV to extract account name, total balance, and generation timestamp.
+ * Typically used for high-yield savings or money market accounts.
+ * Subject to 2MB JSON body limit.
+ *
+ * @param {number} id - Portfolio ID (must be of type 'SAVINGS')
+ * @param {string} csvText - Raw CSV file content (required)
+ * @returns {Object} { success: true, data: updated portfolio status }
+ */
 app.post('/api/portfolios/:id/import-savings-csv', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
@@ -255,7 +382,16 @@ app.post('/api/portfolios/:id/import-savings-csv', async (req, res) => {
     }
 });
 
-
+/**
+ * DELETE /api/portfolios/:id/investments/:ticker
+ * Removes a single investment from the portfolio.
+ * CASH and SAVINGS tickers cannot be deleted (protected structural assets).
+ * Removes all price and history records associated with the ticker for this portfolio.
+ *
+ * @param {number} id - Portfolio ID
+ * @param {string} ticker - Stock/ETF ticker symbol to remove
+ * @returns {Object} { success: true, data: updated portfolio status }
+ */
 app.delete('/api/portfolios/:id/investments/:ticker', (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
@@ -268,6 +404,16 @@ app.delete('/api/portfolios/:id/investments/:ticker', (req, res) => {
     }
 });
 
+/**
+ * POST /api/portfolios/:id/prices/update
+ * Fetches the latest market prices and fundamental metrics for all investments.
+ * Calls Polygon.io for daily prices and Alpha Vantage for fundamental data (dividends, ROIC, etc.).
+ * After updating prices, creates a portfolio snapshot in the history table.
+ * This is a long-running operation that may take several seconds.
+ *
+ * @param {number} id - Portfolio ID
+ * @returns {Object} { success: true, data: updated portfolio status with latest prices }
+ */
 app.post('/api/portfolios/:id/prices/update', async (req, res) => {
     try {
         const portfolio = getPortfolio(req.params.id);
@@ -295,3 +441,14 @@ app.use((err, req, res, next) => {
 app.listen(port, '127.0.0.1', () => {
     logger.info(`Portfolio Web UI running on http://127.0.0.1:${port}`);
 });
+
+// Validation helper for import payloads
+const validateImportSize = (text, fieldName, maxSizeKb = 512) => {
+    if (!text) {
+        throw new Error(`${fieldName} is required`);
+    }
+    const sizeKb = new TextEncoder().encode(text).length / 1024;
+    if (sizeKb > maxSizeKb) {
+        throw new Error(`${fieldName} exceeds maximum size of ${maxSizeKb}KB (received ${sizeKb.toFixed(1)}KB)`);
+    }
+};
