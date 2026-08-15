@@ -1,9 +1,36 @@
 import winston from 'winston';
 import 'winston-daily-rotate-file';
+import fs from 'fs';
+import path from 'path';
+
+// Cleanup old log files on startup to enforce 3-day retention policy
+const cleanupOldLogs = () => {
+  const logsDir = 'logs';
+  const maxAgeMs = 3 * 24 * 60 * 60 * 1000; // 3 days
+  const now = Date.now();
+
+  try {
+    if (!fs.existsSync(logsDir)) return;
+
+    const files = fs.readdirSync(logsDir);
+    files.forEach(file => {
+      const filePath = path.join(logsDir, file);
+      const stats = fs.statSync(filePath);
+      if (now - stats.mtime.getTime() > maxAgeMs) {
+        console.info(`Removing old log file: ${filePath}`);
+        fs.unlinkSync(filePath);
+      }
+    });
+  } catch (err) {
+    console.error('Log cleanup error:', err.message);
+  }
+};
+
+cleanupOldLogs();
 
 const transport = new winston.transports.DailyRotateFile({
   filename: 'logs/application-%DATE%.log',
-  datePattern: 'YYYY-MM-DD-HH',
+  datePattern: 'YYYY-MM-DD',
   zippedArchive: true,
   maxSize: '1m',
   maxFiles: '3d' // Keep logs for 3 days
