@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const actualPercentageSumEl = document.getElementById('actualPercentageSum');
     const investmentsListEl = document.getElementById('investmentsList');
     const addInvestmentForm = document.getElementById('addInvestmentForm');
+    const allocationPanel = document.getElementById('allocationPanel');
     const updatePricesBtn = document.getElementById('updatePricesBtn');
     const importFileInput = document.getElementById('portfolioImportFile');
     const importPortfolioBtn = document.getElementById('btnImportPortfolio');
@@ -499,6 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide/show Add Allocation form
         addInvestmentForm.style.display = isSavings || isOverview ? 'none' : 'block';
+        allocationPanel.style.display = isSavings || isOverview ? 'none' : 'block';
 
         // Hide/show Heatmap button
         const heatmapBtn = document.getElementById('btnToggleCorrelation'); //RMM this worked
