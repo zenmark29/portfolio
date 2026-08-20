@@ -717,7 +717,7 @@ test('Portfolio updateFundamentalMetrics edge cases for coverage', async () => {
 
     // 1. Ticker ending in XX to cover length === 5 && endsWith('XX')
     const invMMF = new Investment('FUNXX', 100, 0.1);
-    
+
     // 2. Investment present on instance but deleted/not found in database
     const invNotFound = new Investment('STK_EXP', 10, 0.2, 'Stock Expired', 'STOCK');
 
@@ -744,7 +744,7 @@ test('Portfolio updateFundamentalMetrics edge cases for coverage', async () => {
 
 test('Portfolio SAVINGS type initialization and protection', () => {
     const dbm = new DatabaseManager(':memory:');
-    
+
     // Insert a portfolio with type 'SAVINGS'
     dbm.db.prepare("INSERT INTO portfolios (name, type) VALUES ('My Savings', 'SAVINGS')").run();
     const pRow = dbm.db.prepare("SELECT id FROM portfolios WHERE name = 'My Savings'").get();
@@ -754,7 +754,7 @@ test('Portfolio SAVINGS type initialization and protection', () => {
 
     assert.strictEqual(portfolio.type, 'SAVINGS');
     assert.strictEqual(portfolio.name, 'My Savings');
-    
+
     // Should have exactly 1 investment: SAVINGS
     assert.strictEqual(portfolio.investments.length, 1);
     const savings = portfolio.investments[0];
