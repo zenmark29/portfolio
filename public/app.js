@@ -259,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderPortfolio = (data) => {
         // Update Hero Stats
         totalValueEl.textContent = formatCurrency(data.totalValue);
+        const isOverview = data.port_type === 'OVERVIEW';
         if (data.port_type === 'SAVINGS') {
             currentPortfolioType = 'SAVINGS';
         } else {
@@ -318,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sharesInput.step = 'any';
             sharesInput.min = '0';
             sharesInput.title = (inv.ticker === 'CASH' || inv.ticker === 'SAVINGS') ? 'Total Dollar Amount' : 'Number of Shares';
-            if (inv.ticker === 'SAVINGS') sharesInput.disabled = true;
+            if (inv.ticker === 'SAVINGS' || isOverview) sharesInput.disabled = true;
             tdShares.appendChild(sharesInput);
 
             // Price cell
@@ -341,6 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (inv.ticker === 'SAVINGS') {
                 typeInput.value = 'Savings';
                 typeInput.disabled = true;
+            } else if (isOverview) {
+                typeInput.disabled = true;
             }
             tdType.appendChild(typeInput);
 
@@ -355,6 +358,8 @@ document.addEventListener('DOMContentLoaded', () => {
             macroCategoryInput.placeholder = 'e.g. Tech';
             if (inv.ticker === 'SAVINGS') {
                 macroCategoryInput.value = 'Savings';
+                macroCategoryInput.disabled = true;
+            } else if (isOverview) {
                 macroCategoryInput.disabled = true;
             }
             tdMacroCategory.appendChild(macroCategoryInput);
@@ -401,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetInput.step = '0.01';
             targetInput.min = '0';
             targetInput.max = '1';
-            if (inv.ticker === 'SAVINGS') {
+            if (inv.ticker === 'SAVINGS' || isOverview) {
                 targetInput.value = '1';
                 targetInput.disabled = true;
             }
@@ -426,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Actions cell
             const tdActions = document.createElement('td');
-            if (inv.ticker !== 'CASH' && inv.ticker !== 'SAVINGS') {
+            if (!isOverview && inv.ticker !== 'CASH' && inv.ticker !== 'SAVINGS') {
                 const delBtn = document.createElement('button');
                 delBtn.className = 'btn-delete';
                 delBtn.setAttribute('data-ticker', inv.ticker);
@@ -474,6 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateUIForPortfolioType = () => {
         const isSavings = currentPortfolioType === 'SAVINGS';
+        const isOverview = currentPortfolioId === 'overview';
 
         // Update file input accept attribute
         importFileInput.accept = isSavings ? '.qfx,.QFX,.ofx,.OFX,application/x-qfx,text/x-qfx,.csv,.CSV,text/csv' : '.csv,.CSV,text/csv';
@@ -481,22 +487,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update import button text
         const importBtnLabel = importPortfolioBtn.querySelector('span') || importPortfolioBtn;
         if (importBtnLabel) {
-            importBtnLabel.textContent = isSavings ? 'Import QFX/CSV' : 'Import CSV';
+            importBtnLabel.textContent = isOverview ? 'Overview' : (isSavings ? 'Import QFX/CSV' : 'Import CSV');
         }
+        importPortfolioBtn.style.display = isOverview ? 'none' : 'block';
 // RMM - Update modal text based on portfolio type
         importModalTitle.textContent = isSavings ? 'Import Savings from QFX/CSV' : defaultCSVTitle;
         importModalDesc.textContent = isSavings ? 'Select the QFX or CSV file exported from your bank and click Upload.' : defaultCSVDescription;
 
         // Hide/show Sync Prices button
-        updatePricesBtn.style.display = isSavings ? 'none' : 'block';
+        updatePricesBtn.style.display = isSavings || isOverview ? 'none' : 'block';
 
         // Hide/show Add Allocation form
-        addInvestmentForm.style.display = isSavings ? 'none' : 'block';
+        addInvestmentForm.style.display = isSavings || isOverview ? 'none' : 'block';
 
         // Hide/show Heatmap button
         const heatmapBtn = document.getElementById('btnToggleCorrelation'); //RMM this worked
         if (heatmapBtn) {
-            heatmapBtn.style.display = isSavings ? 'none' : 'block';
+            heatmapBtn.style.display = isSavings || isOverview ? 'none' : 'block';
         }
     };
 
@@ -536,6 +543,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshPortfoliosUI = (portfolios) => {
         selectEl.innerHTML = '';
         managePortfoliosList.innerHTML = '';
+        const overviewOption = document.createElement('option');
+        overviewOption.value = 'overview';
+        overviewOption.textContent = 'Overview';
+        selectEl.appendChild(overviewOption);
         let hasVisible = false;
         portfolios.forEach(p => {
             if (!p.is_hidden) {

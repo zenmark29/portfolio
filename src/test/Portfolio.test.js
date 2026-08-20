@@ -94,6 +94,72 @@ test('Portfolio status includes extended financial metrics', () => {
     assert.strictEqual(aapl.annualDividend, 1.2);
 });
 
+test('Portfolio overview aggregates duplicate assets and recalculates annual dividend', () => {
+    const overview = Portfolio.getOverviewStatus([
+        {
+            totalValue: 2000,
+            details: [{
+                ticker: 'VTI', shares: 10, value: 2000, targetPercentage: 1,
+                price: 200, name: 'Vanguard Total Stock Market ETF', type: 'ETF',
+                macroCategory: 'Equity', fcfYield: 0.1, roic: 0.2,
+                estimatedForwardCashflow: 50
+            }]
+        },
+        {
+            totalValue: 1500,
+            details: [
+                {
+                    ticker: 'VTI', shares: 5, value: 1000, targetPercentage: 2 / 3,
+                    price: 200, name: 'Vanguard Total Stock Market ETF', type: 'ETF',
+                    macroCategory: 'Equity', fcfYield: 0.1, roic: 0.2,
+                    estimatedForwardCashflow: 25
+                },
+                {
+                    ticker: 'CASH', shares: 500, value: 500, targetPercentage: 1 / 3,
+                    price: 1, name: 'Cash', type: null, macroCategory: null,
+                    fcfYield: null, roic: null, estimatedForwardCashflow: 0
+                }
+            ]
+        }
+    ]);
+
+    const vti = overview.details.find(detail => detail.ticker === 'VTI');
+    assert.strictEqual(overview.totalValue, 3500);
+    assert.strictEqual(vti.shares, 15);
+    assert.strictEqual(vti.value, 3000);
+    assert.strictEqual(vti.estimatedForwardCashflow, 75);
+    assert.strictEqual(vti.annualDividend, 5);
+    assert.strictEqual(vti.price, 200);
+    assert.strictEqual(overview.details.find(detail => detail.ticker === 'CASH').value, 500);
+    assert.strictEqual(overview.targetPercentageSum, 1);
+    assert.strictEqual(overview.port_type, 'OVERVIEW');
+});
+
+test('Portfolio overview handles empty and zero-value assets', () => {
+    const emptyOverview = Portfolio.getOverviewStatus([]);
+    assert.strictEqual(emptyOverview.totalValue, 0);
+    assert.strictEqual(emptyOverview.isTargetValid, true);
+    assert.deepStrictEqual(emptyOverview.details, []);
+
+    const zeroOverview = Portfolio.getOverviewStatus([{
+        totalValue: 0,
+        details: [{
+            ticker: 'ZERO', shares: 0, value: 0, targetPercentage: 0,
+            name: null, type: null, macroCategory: null,
+            fcfYield: null, roic: null, estimatedForwardCashflow: undefined
+        }]
+    }]);
+
+    const zero = zeroOverview.details[0];
+    assert.strictEqual(zero.price, 0);
+    assert.strictEqual(zero.annualDividend, 0);
+    assert.strictEqual(zero.fcfYield, null);
+    assert.strictEqual(zero.roic, null);
+    assert.strictEqual(zero.payoutRatio, 0);
+    assert.strictEqual(zero.targetPercentage, 0);
+    assert.strictEqual(zero.actualPercentage, 0);
+});
+
 test('Portfolio load and save investments', () => {
     const dbm = new DatabaseManager(':memory:');
     const portfolio = new Portfolio(1, dbm, null);

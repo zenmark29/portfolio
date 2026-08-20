@@ -400,6 +400,86 @@ class Portfolio extends BaseObject {
     }
 
     /**
+     * Combines current statuses from multiple portfolios without persisting an overview.
+     * @param {Object[]} statuses
+     * @returns {Object} aggregate portfolio status
+     */
+    static getOverviewStatus(statuses) {
+        const aggregateMap = new Map();
+        let totalValue = 0;
+
+        for (const status of statuses) {
+            totalValue += status.totalValue;
+            for (const detail of status.details) {
+                const aggregate = aggregateMap.get(detail.ticker) || {
+                    ticker: detail.ticker,
+                    name: detail.name,
+                    type: detail.type,
+                    macroCategory: detail.macroCategory,
+                    shares: 0,
+                    value: 0,
+                    targetValue: 0,
+                    estimatedForwardCashflow: 0,
+                    weightedFcfYield: 0,
+                    weightedRoic: 0
+                };
+
+                aggregate.shares += detail.shares;
+                aggregate.value += detail.value;
+                aggregate.targetValue += detail.targetPercentage * status.totalValue;
+                aggregate.estimatedForwardCashflow += detail.estimatedForwardCashflow || 0;
+
+                if (detail.value > 0) {
+                    aggregate.weightedFcfYield += (detail.fcfYield || 0) * detail.value;
+                    aggregate.weightedRoic += (detail.roic || 0) * detail.value;
+                }
+
+                aggregateMap.set(detail.ticker, aggregate);
+            }
+        }
+
+        const details = [...aggregateMap.values()].map(aggregate => {
+            const price = aggregate.shares > 0 ? aggregate.value / aggregate.shares : 0;
+            const annualDividend = aggregate.shares > 0
+                ? aggregate.estimatedForwardCashflow / aggregate.shares
+                : 0;
+            const targetPercentage = totalValue > 0 ? aggregate.targetValue / totalValue : 0;
+            const actualPercentage = totalValue > 0 ? aggregate.value / totalValue : 0;
+            const differencePercentage = targetPercentage - actualPercentage;
+
+            return {
+                ticker: aggregate.ticker,
+                name: aggregate.name,
+                shares: aggregate.shares,
+                price,
+                value: aggregate.value,
+                type: aggregate.type,
+                macroCategory: aggregate.macroCategory,
+                fcfYield: aggregate.value > 0 ? aggregate.weightedFcfYield / aggregate.value : null,
+                payoutRatio: price > 0 ? annualDividend / price : 0,
+                roic: aggregate.value > 0 ? aggregate.weightedRoic / aggregate.value : null,
+                annualDividend,
+                estimatedForwardCashflow: aggregate.estimatedForwardCashflow,
+                targetPercentage,
+                actualPercentage,
+                differencePercentage,
+                rebalanceAmount: targetPercentage * totalValue - aggregate.value
+            };
+        });
+
+        const targetPercentageSum = details.reduce((sum, detail) => sum + detail.targetPercentage, 0);
+
+        return {
+            totalValue,
+            actualPercentageSum: details.reduce((sum, detail) => sum + detail.actualPercentage, 0),
+            targetPercentageSum,
+            isTargetValid: statuses.length === 0 || Math.abs(targetPercentageSum - 1.0) <= 0.0001,
+            details,
+            port_type: 'OVERVIEW'
+        };
+    }
+
+    /**
      * Calculates the Pearson correlation coefficient between two tickers' daily returns.
      * @param {string} ticker1
      * @param {string} ticker2

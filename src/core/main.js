@@ -70,6 +70,19 @@ const getPortfolio = (id) => {
     return portfolio;
 };
 
+const getOverviewStatus = async () => {
+    const portfolios = dbManager.db
+        .prepare('SELECT id FROM portfolios WHERE is_hidden = 0 ORDER BY id ASC')
+        .all()
+        .map(row => getPortfolio(row.id));
+
+    for (const portfolio of portfolios) {
+        await portfolio.ensureAssetNames();
+    }
+
+    return Portfolio.getOverviewStatus(portfolios.map(portfolio => portfolio.getPortfolioStatus()));
+};
+
 // --- PORTFOLIOS API ROUTES --- //
 
 /**
@@ -189,6 +202,11 @@ app.delete('/api/portfolios/:id', (req, res) => {
  */
 app.get('/api/portfolios/:id/status', async (req, res) => {
     try {
+        if (req.params.id === 'overview') {
+            res.json({ success: true, data: await getOverviewStatus() });
+            return;
+        }
+
         const portfolio = getPortfolio(req.params.id);
         await portfolio.ensureAssetNames();
         let status = portfolio.getPortfolioStatus();
