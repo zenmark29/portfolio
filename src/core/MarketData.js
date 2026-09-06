@@ -16,6 +16,24 @@ class MarketData extends BaseObject {
             this.handleError('Constructor', new Error('AV_KEY environment variable is not set.'));
         }
         this.avClient = new AlphaVantageClient(avKey);
+        this.lastAvClientCallTime = 0;
+    }
+
+    /**
+     * Enforces rate limiting for Alpha Vantage API calls (1 per second).
+     * @returns {Promise<void>}
+     */
+    async enforceAvClientRateLimit() {
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastAvClientCallTime;
+        const minInterval = 1000; // 1 second in milliseconds
+
+        if (timeSinceLastCall < minInterval) {
+            const delayNeeded = minInterval - timeSinceLastCall;
+            await new Promise(resolve => setTimeout(resolve, delayNeeded));
+        }
+
+        this.lastAvClientCallTime = Date.now();
     }
 
     /**
@@ -78,6 +96,7 @@ class MarketData extends BaseObject {
     async getStockFundamentals(ticker) {
         try {
             this.log(`Fetching Stock fundamentals from Alpha Vantage for ${ticker}`);
+            await this.enforceAvClientRateLimit();
             const payload = await this.avClient.request('OVERVIEW', { symbol: ticker, datatype: 'json' });
 
             const parseVal = (v) => {
@@ -111,6 +130,7 @@ class MarketData extends BaseObject {
     async getETFFundamentals(ticker) {
         try {
             this.log(`Fetching ETF dividends from Alpha Vantage for ${ticker}`);
+            await this.enforceAvClientRateLimit();
             const trailingDividend = await this.avClient.trailingAnnualDividend(ticker);
             return trailingDividend;
         } catch (error) {
