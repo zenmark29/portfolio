@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const header = parseCsvLine(rows[headerIndex]);
         const symbolIndex = header.indexOf('Symbol');
         const lastPriceIndex = header.indexOf('Last Price $');
-        const quantityIndex = header.indexOf('Quantity');
+        const quantityIndex = header.indexOf('Qty #');
         const valueIndex = header.indexOf('Value $');
 
         if ([symbolIndex, lastPriceIndex, quantityIndex, valueIndex].some(index => index === -1)) {
