@@ -102,8 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const quantityIndex = header.indexOf('Qty #');
         const valueIndex = header.indexOf('Value $');
 
-        if ([symbolIndex, lastPriceIndex, quantityIndex, valueIndex].some(index => index === -1)) {
-            throw new Error('CSV header is missing required columns.');
+        const missingColumns = [
+            ['Symbol', symbolIndex],
+            ['Last Price $', lastPriceIndex],
+            ['Qty #', quantityIndex],
+            ['Value $', valueIndex]
+        ].filter(([, index]) => index === -1).map(([column]) => column);
+
+        if (missingColumns.length > 0) {
+            throw new Error(`CSV header is missing required column(s): ${missingColumns.join(', ')}.`);
         }
 
         const holdings = [];
