@@ -5,7 +5,7 @@ An interesting way to manage my portfolio
 ## Charts
     Added some simple charts to track what's going on with the assets. Now I have to practice using them and getting accustomed to taking action on what they are telling me.
 ## TODO
-    Done: updated to all latest versions.
+    add logging everywhere there is a this.HandleError statement
 
 ## Required API Keys
 ### get an API key from polygon.io and put it into your environment as POLY_KEY. It is used to pull prices from the end of day the previous day. It logs the pull and won't redo it.
