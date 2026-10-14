@@ -641,7 +641,7 @@ class Portfolio extends BaseObject {
             } else {
                 const diffTime = Math.abs(new Date(today) - new Date(lastUpdate));
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const threshold = type === 'STOCK' ? 30 : 90;
+                const threshold = type === 'STOCK' ? 30 : 30;
                 if (diffDays >= threshold) {
                     needsUpdate = true;
                 }
