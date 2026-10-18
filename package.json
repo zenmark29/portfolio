@@ -26,7 +26,6 @@
   "dependencies": {
     "@polygon.io/client-js": "^8.2.0",
     "approve": "^0.0.12",
-    "av_api": "github:zenmark29/av_api#main",
     "better-sqlite3": "^13.0.3",
     "chart.js": "^4.5.1",
     "esbuild": "^0.28.2",

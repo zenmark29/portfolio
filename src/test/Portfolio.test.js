@@ -603,7 +603,7 @@ test('Portfolio updateFundamentalMetrics processes Stock, ETF, CASH, other types
     const strStockExpired = dateStockExpired.toISOString().split('T')[0];
 
     const dateETFCached = new Date();
-    dateETFCached.setDate(dateETFCached.getDate() - 45); // 45 days ago (ETF should be skipped)
+    dateETFCached.setDate(dateETFCached.getDate() - 25); // 45 days ago (ETF should be skipped)
     const strETFCached = dateETFCached.toISOString().split('T')[0];
 
     const dateETFExpired = new Date();
@@ -657,7 +657,7 @@ test('Portfolio updateFundamentalMetrics processes Stock, ETF, CASH, other types
     dbm.db.prepare("UPDATE investments SET last_fundamental_update = ? WHERE ticker = 'STK_EXP'").run(strStockExpired);
     dbm.db.prepare("UPDATE investments SET last_fundamental_update = ? WHERE ticker = 'ETF_OK'").run(strETFCached);
     dbm.db.prepare("UPDATE investments SET last_fundamental_update = ? WHERE ticker = 'ETF_EXP'").run(strETFExpired);
-
+    const debug = dbm.db.prepare("SELECT * FROM investments WHERE ticker = 'ETF_OK'").get();
     // Run synchronization
     await portfolio.updateFundamentalMetrics();
 

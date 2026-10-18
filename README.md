@@ -15,6 +15,7 @@ An interesting way to manage my portfolio
                 - payoutRatio: payoutRatio
                 - roic: roic
                 - operatingMargin: operatingMargin
+The Alpha Vantage API client is included in `src/core/AlphaVantageClient.js`; it does not need to be installed as a separate package.
 
 # keeping it clean
 - on the startup script it also checks for security vulnerabilities. I remediate them immediately, run tests, do a quick E2E test and then commit the code.

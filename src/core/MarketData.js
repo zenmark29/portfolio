@@ -1,6 +1,6 @@
 import BaseObject from './BaseObject.js';
 import { restClient } from '@polygon.io/client-js';
-import { AlphaVantageClient } from 'av_api';
+import { AlphaVantageClient } from './AlphaVantageClient.js';
 
 class MarketData extends BaseObject {
     constructor() {
