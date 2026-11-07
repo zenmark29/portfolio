@@ -7,7 +7,6 @@
     "test": "node --test src/test/*.test.js",
     "start": "npm audit --audit-level=high; node src/core/main.js",
     "debug": "node --inspect src/core/main.js",
-    "coverage": "c8 npm test",
     "//comment": "Run outdated on Friday and make a list of what to update.",
     "outdated": "npm outdated"
   },
@@ -39,8 +38,7 @@
     "decode-uri-component": "^0.5.0"
   },
   "devDependencies": {
-    "@yao-pkg/pkg": "^6.22.0",
-    "c8": "^12.0.0"
+    "@yao-pkg/pkg": "^6.22.0"
   },
   "allowScripts": {
     "bufferutil@4.1.0": true,
